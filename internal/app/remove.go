@@ -76,17 +76,17 @@ func (a *App) Remove(name string, force bool) error {
 		if err := jj.WorkspaceForget(a.Runner, ctx.MainRoot, name); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.Out, "forgot jj workspace %q\n", name)
+		_, _ = fmt.Fprintf(a.Out, "forgot jj workspace %q\n", name)
 	}
 	if dirExists {
 		if err := os.RemoveAll(wsPath); err != nil {
 			return err
 		}
-		fmt.Fprintf(a.Out, "deleted %s\n", wsPath)
+		_, _ = fmt.Fprintf(a.Out, "deleted %s\n", wsPath)
 	}
 	if windowFound {
 		// Killed last: if it is our own window this ends the process.
-		fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", window.Name, window.ID)
+		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", window.Name, window.ID)
 		if err := tmuxctl.KillWindow(a.Runner, window.ID); err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func (a *App) inferFeature(ctx *repoContext, names []string) (string, error) {
 }
 
 func (a *App) confirm(prompt string) bool {
-	fmt.Fprintf(a.Errw, "%s [y/N] ", prompt)
+	_, _ = fmt.Fprintf(a.Errw, "%s [y/N] ", prompt)
 	line, err := bufio.NewReader(a.In).ReadString('\n')
 	if err != nil && line == "" {
 		return false

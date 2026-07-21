@@ -33,7 +33,7 @@ func main() {
 	switch os.Args[1] {
 	case "add":
 		fs := flag.NewFlagSet("add", flag.ExitOnError)
-		fs.Parse(os.Args[2:])
+		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() != 1 {
 			fmt.Fprintln(os.Stderr, "usage: agentmux add <feature>")
 			os.Exit(2)
@@ -43,7 +43,7 @@ func main() {
 		fs := flag.NewFlagSet("remove", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the dirty working-copy confirmation")
 		fs.BoolVar(force, "f", *force, "shorthand for -force")
-		fs.Parse(os.Args[2:])
+		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() > 1 {
 			fmt.Fprintln(os.Stderr, "usage: agentmux remove [-f] [name]")
 			os.Exit(2)

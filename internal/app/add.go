@@ -22,7 +22,7 @@ func (a *App) Add(feature string) error {
 		return err
 	}
 	if !jj.IsColocated(ctx.MainRoot) {
-		fmt.Fprintf(a.Errw, "warning: %s is not a colocated jj repo; git tooling will not work in the workspace\n", ctx.MainRoot)
+		_, _ = fmt.Fprintf(a.Errw, "warning: %s is not a colocated jj repo; git tooling will not work in the workspace\n", ctx.MainRoot)
 	}
 
 	wsPath := workspacePath(ctx.MainRoot, feature)
@@ -52,10 +52,10 @@ func (a *App) Add(feature string) error {
 	}
 	rollbackWorkspace := func() {
 		if ferr := jj.WorkspaceForget(a.Runner, ctx.MainRoot, feature); ferr != nil {
-			fmt.Fprintf(a.Errw, "rollback: %v\n", ferr)
+			_, _ = fmt.Fprintf(a.Errw, "rollback: %v\n", ferr)
 		}
 		if rerr := os.RemoveAll(wsPath); rerr != nil {
-			fmt.Fprintf(a.Errw, "rollback: %v\n", rerr)
+			_, _ = fmt.Fprintf(a.Errw, "rollback: %v\n", rerr)
 		}
 	}
 
@@ -66,7 +66,7 @@ func (a *App) Add(feature string) error {
 	}
 	rollbackAll := func() {
 		if kerr := tmuxctl.KillWindow(a.Runner, windowID); kerr != nil {
-			fmt.Fprintf(a.Errw, "rollback: %v\n", kerr)
+			_, _ = fmt.Fprintf(a.Errw, "rollback: %v\n", kerr)
 		}
 		rollbackWorkspace()
 	}
@@ -85,7 +85,7 @@ func (a *App) Add(feature string) error {
 		}
 	}
 
-	fmt.Fprintf(a.Out, "added feature %q: workspace %s, tmux window %s (%s)\n",
+	_, _ = fmt.Fprintf(a.Out, "added feature %q: workspace %s, tmux window %s (%s)\n",
 		feature, wsPath, windowName, windowID)
 	return nil
 }
