@@ -79,6 +79,7 @@ func (a *App) Add(feature string) error {
 		rollbackAll()
 		return err
 	}
+	a.ensureSidebarPane(ctx.Config, windowID)
 	if ctx.Config.SelectWindowEnabled() {
 		if err := tmuxctl.SelectWindow(a.Runner, windowID); err != nil {
 			return err

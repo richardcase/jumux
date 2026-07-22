@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -14,16 +15,20 @@ import (
 const RepoFileName = ".agentmux.toml"
 
 type Config struct {
-	Agent        string `toml:"agent"`
-	SelectWindow *bool  `toml:"select_window"`
-	BaseRevision string `toml:"base_revision"`
-	WindowPrefix string `toml:"window_prefix"`
+	Agent          string `toml:"agent"`
+	SelectWindow   *bool  `toml:"select_window"`
+	BaseRevision   string `toml:"base_revision"`
+	WindowPrefix   string `toml:"window_prefix"`
+	SidebarWidth   int    `toml:"sidebar_width"`
+	SidebarRefresh int    `toml:"sidebar_refresh"`
 }
 
 func defaults() Config {
 	return Config{
-		Agent:        "claude",
-		BaseRevision: "trunk()",
+		Agent:          "claude",
+		BaseRevision:   "trunk()",
+		SidebarWidth:   32,
+		SidebarRefresh: 2,
 	}
 }
 
@@ -71,4 +76,20 @@ func (c Config) AgentCommand(feature string) string {
 // (default true).
 func (c Config) SelectWindowEnabled() bool {
 	return c.SelectWindow == nil || *c.SelectWindow
+}
+
+// SidebarWidthCols returns the sidebar pane width in columns (default 32).
+func (c Config) SidebarWidthCols() int {
+	if c.SidebarWidth <= 0 {
+		return 32
+	}
+	return c.SidebarWidth
+}
+
+// SidebarRefreshInterval returns the sidebar refresh interval (default 2s).
+func (c Config) SidebarRefreshInterval() time.Duration {
+	if c.SidebarRefresh <= 0 {
+		return 2 * time.Second
+	}
+	return time.Duration(c.SidebarRefresh) * time.Second
 }

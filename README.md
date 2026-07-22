@@ -8,6 +8,7 @@ feature.
 agentmux add <feature>       create a jj workspace + tmux window, start the agent
 agentmux remove [-f] [name]  tear a feature down (defaults to the current one)
 agentmux list                show feature workspaces and their tmux windows
+agentmux sidebar             toggle a live agent sidebar pane on every tmux window
 ```
 
 ## What `add` does
@@ -38,6 +39,24 @@ Run inside tmux, anywhere in a jj repo (ideally colocated with git):
 Cleanup is idempotent: stale state (directory deleted by hand, window closed,
 etc.) is skipped, and it only errors if nothing at all was found.
 
+## What `sidebar` does
+
+Toggles a live agent sidebar, modeled on
+[workmux's sidebar](https://workmux.raine.dev/reference/commands/sidebar):
+a narrow pane on the left edge of **every window of every tmux session**.
+Each row is a window tagged with `@agentmux-feature` (any session, any repo),
+showing `repo/feature`, the workspace's jj state (`dirty`/`clean`), and a `!`
+marker when tmux has flagged activity in that window.
+
+Keys: `j`/`k` (or arrows) move, `g`/`G` jump to first/last, `Enter` switches
+to the selected feature's window (across sessions), `q` closes the sidebar
+everywhere — same as running `agentmux sidebar` again.
+
+`add` splits a sidebar pane into its new window automatically while the
+sidebar is open; windows created by plain tmux pick one up on the next
+toggle. Panes only poll jj while their window is visible, so idle windows
+cost nothing.
+
 ## Configuration
 
 Global `~/.config/agentmux/config.toml`, overridden per-key by
@@ -48,6 +67,8 @@ agent = "claude"            # command to run; "{feature}" is substituted if pres
 select_window = true        # switch to the new window after add
 base_revision = "trunk()"   # revset new workspaces are based on
 window_prefix = ""          # prepended to tmux window names
+sidebar_width = 32          # sidebar pane width in columns
+sidebar_refresh = 2         # sidebar refresh interval in seconds
 ```
 
 Example with a starting prompt:
