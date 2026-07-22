@@ -94,6 +94,37 @@ func TestPaneCommands(t *testing.T) {
 	}
 }
 
+func TestPaneWindowInfo(t *testing.T) {
+	tests := []struct {
+		name        string
+		out         string
+		wantWindow  string
+		wantFeature string
+	}{
+		{name: "with feature", out: "@5\tauth\n", wantWindow: "@5", wantFeature: "auth"},
+		{name: "no feature", out: "@5\t\n", wantWindow: "@5", wantFeature: ""},
+		{name: "ragged", out: "@5", wantWindow: "@5", wantFeature: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+				return tt.out, nil
+			}}
+			windowID, feature, err := PaneWindowInfo(fr, "%7")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if windowID != tt.wantWindow || feature != tt.wantFeature {
+				t.Errorf("got (%q, %q), want (%q, %q)", windowID, feature, tt.wantWindow, tt.wantFeature)
+			}
+			wantCmd := "tmux display-message -p -t %7 #{window_id}\t#{@agentmux-feature}"
+			if gotCmd := fr.Calls[0].String(); gotCmd != wantCmd {
+				t.Errorf("command %q", gotCmd)
+			}
+		})
+	}
+}
+
 func TestPaneWindowActive(t *testing.T) {
 	for out, want := range map[string]bool{"1": true, "0": false} {
 		fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/jj"
 	"github.com/richardcase/agentmux/internal/tmuxctl"
 )
@@ -85,6 +86,9 @@ func (a *App) Remove(name string, force bool) error {
 		_, _ = fmt.Fprintf(a.Out, "deleted %s\n", wsPath)
 	}
 	if windowFound {
+		if err := agentstate.Remove(a.StateDir, window.ID); err != nil {
+			_, _ = fmt.Fprintf(a.Errw, "removing agent state: %v\n", err)
+		}
 		// Killed last: if it is our own window this ends the process.
 		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", window.Name, window.ID)
 		if err := tmuxctl.KillWindow(a.Runner, window.ID); err != nil {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/run"
 	"github.com/richardcase/agentmux/internal/tmuxctl"
 )
@@ -58,7 +59,8 @@ func TestFeatureStatuses(t *testing.T) {
 		{SessionID: "$0", SessionName: "main", ID: "@1", Name: "zsh", Path: "/home/me"},
 		{SessionID: "$1", SessionName: "work", ID: "@5", Feature: "lost", Path: "/gone"},
 	}
-	rows := featureStatuses(fr, windows)
+	agent := map[string]agentstate.Status{"@2": agentstate.Working, "@9": agentstate.Done}
+	rows := featureStatuses(fr, windows, agent)
 	if len(rows) != 3 {
 		t.Fatalf("untagged window should be skipped; got %d rows: %+v", len(rows), rows)
 	}
@@ -68,13 +70,13 @@ func TestFeatureStatuses(t *testing.T) {
 	}
 	auth := rows[0]
 	if auth.Repo != "myrepo" || auth.Status != "dirty" || !auth.Activity ||
-		auth.SessionID != "$0" || auth.WindowID != "@2" {
+		auth.SessionID != "$0" || auth.WindowID != "@2" || auth.AgentStatus != "working" {
 		t.Errorf("auth row wrong: %+v", auth)
 	}
-	if rows[2].Status != "clean" || rows[2].Repo != "myrepo" {
+	if rows[2].Status != "clean" || rows[2].Repo != "myrepo" || rows[2].AgentStatus != "done" {
 		t.Errorf("billing row wrong: %+v", rows[2])
 	}
-	if rows[1].Status != "unknown" || rows[1].Repo != "" {
+	if rows[1].Status != "unknown" || rows[1].Repo != "" || rows[1].AgentStatus != "" {
 		t.Errorf("unresolvable row should be unknown: %+v", rows[1])
 	}
 }
@@ -93,7 +95,7 @@ func TestFeatureStatusesCachesRootPerPath(t *testing.T) {
 		{SessionName: "a", ID: "@1", Feature: "auth", Path: ws["auth"]},
 		{SessionName: "a", ID: "@2", Feature: "auth", Path: ws["auth"]},
 	}
-	if rows := featureStatuses(fr, windows); len(rows) != 2 {
+	if rows := featureStatuses(fr, windows, nil); len(rows) != 2 {
 		t.Fatalf("got %d rows", len(rows))
 	}
 	if rootCalls != 1 {

@@ -113,6 +113,22 @@ func SwitchToWindow(r run.Runner, sessionID, windowID string) error {
 	return err
 }
 
+// PaneWindowInfo returns the pane's window ID and that window's
+// @agentmux-feature value ("" if unset), in a single tmux call.
+func PaneWindowInfo(r run.Runner, paneID string) (windowID, feature string, err error) {
+	out, err := r.Run("", "tmux", "display-message", "-p", "-t", paneID,
+		"#{window_id}\t#{"+FeatureOption+"}")
+	if err != nil {
+		return "", "", err
+	}
+	parts := strings.SplitN(strings.TrimRight(out, "\n"), "\t", 2)
+	windowID = parts[0]
+	if len(parts) > 1 {
+		feature = parts[1]
+	}
+	return windowID, feature, nil
+}
+
 // PaneWindowActive reports whether the pane's window is its session's
 // current window (i.e. the pane is potentially visible).
 func PaneWindowActive(r run.Runner, paneID string) (bool, error) {

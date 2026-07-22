@@ -21,6 +21,7 @@ func (a *App) Add(feature string) error {
 	if err != nil {
 		return err
 	}
+	a.ensureClaudeHooks()
 	if !jj.IsColocated(ctx.MainRoot) {
 		_, _ = fmt.Fprintf(a.Errw, "warning: %s is not a colocated jj repo; git tooling will not work in the workspace\n", ctx.MainRoot)
 	}

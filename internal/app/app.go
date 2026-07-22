@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/config"
 	"github.com/richardcase/agentmux/internal/jj"
 	"github.com/richardcase/agentmux/internal/run"
@@ -29,6 +31,12 @@ type App struct {
 	Executable func() (string, error)
 	// GlobalConfig is the path to the global config file ("" to skip).
 	GlobalConfig string
+	// StateDir holds per-window agent status files written by `agentmux hook`.
+	StateDir string
+	// ClaudeSettings is the path to the Claude Code settings file where Add
+	// offers to install the status hooks ("" to skip the offer).
+	ClaudeSettings string
+	Now            func() time.Time
 }
 
 // New returns an App wired to the real environment.
@@ -42,6 +50,15 @@ func New() *App {
 		Getenv:       os.Getenv,
 		Executable:   os.Executable,
 		GlobalConfig: config.GlobalPath(),
+		StateDir:     agentstate.Dir(os.Getenv),
+		ClaudeSettings: func() string {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return ""
+			}
+			return filepath.Join(home, ".claude", "settings.json")
+		}(),
+		Now: time.Now,
 	}
 }
 
@@ -50,6 +67,14 @@ type repoContext struct {
 	MainRoot string
 	WsRoot   string // root of the workspace cwd is in
 	Config   config.Config
+}
+
+// now returns the current time, honoring a test-injected Now.
+func (a *App) now() time.Time {
+	if a.Now != nil {
+		return a.Now()
+	}
+	return time.Now()
 }
 
 func (a *App) requireTmux() error {

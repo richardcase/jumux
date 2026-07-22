@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/sidebar"
 )
 
@@ -121,6 +123,47 @@ func TestSidebarRunNoQuitLeavesPanes(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertNotRan(t, "kill-pane")
+}
+
+func TestSidebarRunFetchAgentStatusAndPrune(t *testing.T) {
+	f := sidebarFixture(t)
+	f.app.StateDir = t.TempDir()
+	now := time.Now()
+	// @2 is the live auth feature window; @9 no longer exists.
+	for _, e := range []agentstate.Entry{
+		{WindowID: "@2", Status: agentstate.Working, UpdatedAt: now},
+		{WindowID: "@9", Status: agentstate.Done, UpdatedAt: now},
+	} {
+		if err := agentstate.Write(f.app.StateDir, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	orig := runProgram
+	defer func() { runProgram = orig }()
+	var view string
+	runProgram = func(m tea.Model) (tea.Model, error) {
+		// Init batches fetchCmd first, then the refresh tick; run just the
+		// fetch so the test doesn't sleep for the tick interval.
+		batch, ok := m.Init()().(tea.BatchMsg)
+		if !ok || len(batch) == 0 {
+			t.Fatal("Init should return a batch")
+		}
+		next, _ := m.Update(batch[0]())
+		view = next.View()
+		return next, nil
+	}
+	if err := f.app.SidebarRun(); err != nil {
+		t.Fatal(err)
+	}
+	// The auth row renders the working spinner from the hook state.
+	if !strings.Contains(view, "⠋") {
+		t.Errorf("view should show the working spinner:\n%s", view)
+	}
+	got := agentstate.ReadAll(f.app.StateDir, now)
+	if len(got) != 1 || got["@2"] != agentstate.Working {
+		t.Errorf("dead-window state should be pruned; got %v", got)
+	}
 }
 
 func TestAddSplitsSidebarPaneWhenActive(t *testing.T) {

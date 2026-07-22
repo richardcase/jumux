@@ -7,12 +7,13 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func testItems() []Item {
 	return []Item{
-		{Label: "myrepo/auth", Status: "dirty", SessionID: "$0", WindowID: "@2"},
-		{Label: "myrepo/billing", Status: "clean", SessionID: "$0", WindowID: "@3"},
+		{Label: "myrepo/auth", Status: "dirty", Agent: "working", SessionID: "$0", WindowID: "@2"},
+		{Label: "myrepo/billing", Status: "clean", Agent: "done", SessionID: "$0", WindowID: "@3"},
 		{Label: "other/fix", Status: "unknown", SessionID: "$1", WindowID: "@7", Activity: true},
 	}
 }
@@ -155,15 +156,74 @@ func TestViewContents(t *testing.T) {
 	m := newTestModel(testItems(), nil)
 	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
 	out := m.View()
-	for _, want := range []string{"agentmux", "myrepo/auth", "dirty", "other/fix", "q quit"} {
+	// Icons: spinner (auth working), ✓ (billing done + clean), ● (auth
+	// dirty), ? (fix unknown), · (fix agent unknown).
+	for _, want := range []string{"agentmux", "myrepo/auth", "other/fix", "q quit",
+		spinnerFrames[0], "✓", "●", "?", "·"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q:\n%s", want, out)
+		}
+	}
+	// Status words are replaced by icons.
+	for _, unwanted := range []string{"dirty", "clean", "working", "done"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("view should not contain status word %q:\n%s", unwanted, out)
 		}
 	}
 	for _, line := range strings.Split(out, "\n") {
 		if w := len([]rune(stripANSI(line))); w > 40 {
 			t.Errorf("line wider than 40 (%d): %q", w, line)
 		}
+	}
+}
+
+func TestViewIconWidths(t *testing.T) {
+	// The row width math assumes every icon is one column wide.
+	glyphs := append([]string{"✓", "●", "?", "·", "!", "▸"}, spinnerFrames...)
+	for _, g := range glyphs {
+		if w := lipgloss.Width(g); w != 1 {
+			t.Errorf("glyph %q has width %d, want 1", g, w)
+		}
+	}
+}
+
+func TestSpinner(t *testing.T) {
+	m := newTestModel(testItems(), nil)
+
+	// A fetch with a working item schedules the spinner.
+	m, cmd := update(t, m, dataMsg{items: testItems()})
+	if cmd == nil {
+		t.Fatal("dataMsg with a working item should schedule a spinner tick")
+	}
+	if !m.spinning {
+		t.Error("spinning should be set")
+	}
+
+	// Ticks advance the frame and change the rendered spinner glyph.
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
+	before := m.View()
+	m, cmd = update(t, m, spinnerTickMsg{})
+	if m.frame != 1 || cmd == nil {
+		t.Errorf("tick should advance frame and reschedule; frame=%d cmd=%v", m.frame, cmd)
+	}
+	if after := m.View(); after == before {
+		t.Error("spinner tick should change the view")
+	}
+
+	// With nothing working the spinner stops and no new tick is scheduled.
+	idle := []Item{{Label: "myrepo/auth", Status: "clean", Agent: "done"}}
+	m, _ = update(t, m, dataMsg{items: idle})
+	m, cmd = update(t, m, spinnerTickMsg{})
+	if m.spinning || cmd != nil {
+		t.Errorf("spinner should stop when nothing is working; spinning=%v cmd=%v", m.spinning, cmd)
+	}
+}
+
+func TestNoSpinnerWhenNothingWorking(t *testing.T) {
+	items := []Item{{Label: "myrepo/auth", Status: "clean", Agent: "done"}}
+	m := newTestModel(items, nil)
+	if _, cmd := update(t, m, dataMsg{items: items}); cmd != nil {
+		t.Error("dataMsg without working items should not schedule a spinner tick")
 	}
 }
 

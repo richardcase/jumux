@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/jj"
 	"github.com/richardcase/agentmux/internal/run"
 	"github.com/richardcase/agentmux/internal/tmuxctl"
@@ -15,6 +16,7 @@ type FeatureStatus struct {
 	Repo        string // base name of the row's jj main root
 	Feature     string
 	Status      string // "clean" | "dirty" | "unknown"
+	AgentStatus string // "working" | "waiting" | "done" | "" (unknown)
 	SessionID   string
 	SessionName string
 	WindowID    string
@@ -26,7 +28,9 @@ type FeatureStatus struct {
 // path, so multiple repos across sessions are handled without shared state.
 // Rows whose path cannot be resolved get status "unknown" rather than being
 // dropped.
-func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow) []FeatureStatus {
+// agent maps window IDs to hook-reported agent statuses (nil when no agent
+// state is available).
+func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[string]agentstate.Status) []FeatureStatus {
 	mainRoots := map[string]string{} // path -> main root ("" on failure)
 	var rows []FeatureStatus
 	for _, w := range windows {
@@ -36,6 +40,7 @@ func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow) []FeatureStat
 		row := FeatureStatus{
 			Feature:     w.Feature,
 			Status:      "unknown",
+			AgentStatus: string(agent[w.ID]),
 			SessionID:   w.SessionID,
 			SessionName: w.SessionName,
 			WindowID:    w.ID,
