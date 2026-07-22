@@ -14,6 +14,7 @@ import (
 type Item struct {
 	Label     string // "repo/feature"
 	Status    string // "clean" | "dirty" | "unknown"
+	Agent     string // "working" | "waiting" | "done" | "" (unknown)
 	Activity  bool
 	SessionID string
 	WindowID  string
@@ -41,6 +42,9 @@ type Model struct {
 	height int
 	err    error // last fetch/jump error, shown in the footer
 
+	frame    int  // current spinner frame for "working" rows
+	spinning bool // a spinner tick is already scheduled
+
 	// Quitting is set when the user asked to close the sidebar; the caller
 	// tears down all sidebar panes.
 	Quitting bool
@@ -52,6 +56,25 @@ func NewModel(fetch Fetch, jump Jump, interval time.Duration) Model {
 }
 
 type tickMsg struct{}
+
+type spinnerTickMsg struct{}
+
+// spinnerInterval paces the "working" spinner animation; spinner ticks only
+// redraw, they never re-fetch.
+const spinnerInterval = 250 * time.Millisecond
+
+func spinnerTickCmd() tea.Cmd {
+	return tea.Tick(spinnerInterval, func(time.Time) tea.Msg { return spinnerTickMsg{} })
+}
+
+func anyWorking(items []Item) bool {
+	for _, it := range items {
+		if it.Agent == "working" {
+			return true
+		}
+	}
+	return false
+}
 
 type dataMsg struct {
 	items []Item
@@ -87,7 +110,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil {
 			m.setItems(msg.items)
 		}
+		if !m.spinning && anyWorking(m.items) {
+			m.spinning = true
+			return m, spinnerTickCmd()
+		}
 		return m, nil
+	case spinnerTickMsg:
+		if !anyWorking(m.items) {
+			m.spinning = false
+			return m, nil
+		}
+		m.frame++
+		return m, spinnerTickCmd()
 	case jumpMsg:
 		m.err = msg.err
 		return m, nil

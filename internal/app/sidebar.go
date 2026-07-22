@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/richardcase/agentmux/internal/agentstate"
 	"github.com/richardcase/agentmux/internal/config"
 	"github.com/richardcase/agentmux/internal/jj"
 	"github.com/richardcase/agentmux/internal/run"
@@ -83,7 +84,15 @@ func (a *App) SidebarRun() error {
 		if err != nil {
 			return nil, err
 		}
-		rows := featureStatuses(a.Runner, windows)
+		live := map[string]bool{}
+		for _, w := range windows {
+			if w.Feature != "" {
+				live[w.ID] = true
+			}
+		}
+		_ = agentstate.Prune(a.StateDir, live)
+		agent := agentstate.ReadAll(a.StateDir, a.now())
+		rows := featureStatuses(a.Runner, windows, agent)
 		items := make([]sidebar.Item, 0, len(rows))
 		for _, row := range rows {
 			label := row.Feature
@@ -93,6 +102,7 @@ func (a *App) SidebarRun() error {
 			items = append(items, sidebar.Item{
 				Label:     label,
 				Status:    row.Status,
+				Agent:     row.AgentStatus,
 				Activity:  row.Activity,
 				SessionID: row.SessionID,
 				WindowID:  row.WindowID,

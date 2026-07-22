@@ -9,6 +9,7 @@ agentmux add <feature>       create a jj workspace + tmux window, start the agen
 agentmux remove [-f] [name]  tear a feature down (defaults to the current one)
 agentmux list                show feature workspaces and their tmux windows
 agentmux sidebar             toggle a live agent sidebar pane on every tmux window
+agentmux hook <status>       record agent status (working|waiting|done) from hooks
 ```
 
 ## What `add` does
@@ -45,8 +46,18 @@ Toggles a live agent sidebar, modeled on
 [workmux's sidebar](https://workmux.raine.dev/reference/commands/sidebar):
 a narrow pane on the left edge of **every window of every tmux session**.
 Each row is a window tagged with `@agentmux-feature` (any session, any repo),
-showing `repo/feature`, the workspace's jj state (`dirty`/`clean`), and a `!`
-marker when tmux has flagged activity in that window.
+showing an agent status icon, `repo/feature`, a right-aligned jj working-copy
+icon, and a `!` marker when tmux has flagged activity in that window.
+
+| Column | Icon | Meaning |
+|---|---|---|
+| agent | `⠋` animated spinner (cyan) | agent is working |
+| agent | `?` (yellow) | agent is waiting for input |
+| agent | `✓` (green) | agent is done |
+| agent | `·` (dim) | no agent status recorded |
+| jj | `✓` (green) | working copy clean |
+| jj | `●` (yellow) | working copy has changes |
+| jj | `?` (dim) | jj state unknown |
 
 Keys: `j`/`k` (or arrows) move, `g`/`G` jump to first/last, `Enter` switches
 to the selected feature's window (across sessions), `q` closes the sidebar
@@ -56,6 +67,35 @@ everywhere — same as running `agentmux sidebar` again.
 sidebar is open; windows created by plain tmux pick one up on the next
 toggle. Panes only poll jj while their window is visible, so idle windows
 cost nothing.
+
+## Agent status icons
+
+The agent column is fed by [Claude Code
+hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) calling
+`agentmux hook <status>`. The first `agentmux add` offers to install the
+hooks into `~/.claude/settings.json`; to set them up by hand, add:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "agentmux hook working" }] }],
+    "PostToolUse":      [{ "hooks": [{ "type": "command", "command": "agentmux hook working" }] }],
+    "Notification":     [{ "hooks": [{ "type": "command", "command": "agentmux hook waiting" }] }],
+    "Stop":             [{ "hooks": [{ "type": "command", "command": "agentmux hook done" }] }]
+  }
+}
+```
+
+(`PostToolUse` flips the status back to working after a permission approval;
+without it a row would stay "waiting" until the turn ends.)
+
+`agentmux hook` resolves the calling pane's window via `$TMUX_PANE` and
+writes a small state file under `~/.local/state/agentmux/status/` (or
+`$XDG_STATE_HOME/agentmux/status/`). Outside tmux or outside an agentmux
+feature window it does nothing, so the hooks are safe to enable globally.
+The sidebar prunes state files for closed windows, `remove` deletes the
+feature's file, and a `working` entry with no update for 15 minutes is
+treated as unknown.
 
 ## Configuration
 

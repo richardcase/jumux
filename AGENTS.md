@@ -9,8 +9,10 @@ agents. It pairs a [jujutsu (jj)](https://github.com/jj-vcs/jj) workspace with
 a tmux window per feature. It must be run inside tmux, in a jj repo.
 
 - Module: `github.com/richardcase/agentmux`
-- Commands: `add <feature>`, `remove [-f] [name]`, `list`, `sidebar`
-  (dispatched in `main.go`; `sidebar run` is the internal per-pane TUI mode)
+- Commands: `add <feature>`, `remove [-f] [name]`, `list`, `sidebar`,
+  `hook <status>` (dispatched in `main.go`; `sidebar run` is the internal
+  per-pane TUI mode; `hook` is called from Claude Code hooks to record agent
+  liveness)
 - Configuration: global `~/.config/agentmux/config.toml`, overridden per-repo
   by `.agentmux.toml` at the repo root (TOML)
 
@@ -18,7 +20,8 @@ a tmux window per feature. It must be run inside tmux, in a jj repo.
 
 - `main.go` — entrypoint and CLI argument parsing
 - `internal/app/` — command implementations (`add.go`, `remove.go`, `list.go`,
-  `sidebar.go`, `status.go`)
+  `sidebar.go`, `status.go`, `hook.go`, `claudehooks.go`)
+- `internal/agentstate/` — per-window agent status file store (no jj/tmux deps)
 - `internal/config/` — TOML config loading and merging
 - `internal/jj/` — jujutsu wrapper
 - `internal/tmuxctl/` — tmux control

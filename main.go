@@ -18,6 +18,8 @@ Commands:
                        (name defaults to the current feature)
   list                 show feature workspaces and their tmux windows
   sidebar              toggle a live agent sidebar pane on every tmux window
+  hook <status>        record agent status (working|waiting|done); wired to
+                       Claude Code hooks
 
 Config: ~/.config/agentmux/config.toml, overridden per-repo by .agentmux.toml
 `
@@ -65,6 +67,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, "usage: agentmux sidebar")
 			os.Exit(2)
 		}
+	case "hook":
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "usage: agentmux hook <working|waiting|done>")
+			os.Exit(2)
+		}
+		err = a.Hook(os.Args[2])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
