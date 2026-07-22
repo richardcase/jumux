@@ -9,17 +9,20 @@ agents. It pairs a [jujutsu (jj)](https://github.com/jj-vcs/jj) workspace with
 a tmux window per feature. It must be run inside tmux, in a jj repo.
 
 - Module: `github.com/richardcase/agentmux`
-- Commands: `add <feature>`, `remove [-f] [name]`, `list` (dispatched in `main.go`)
+- Commands: `add <feature>`, `remove [-f] [name]`, `list`, `sidebar`
+  (dispatched in `main.go`; `sidebar run` is the internal per-pane TUI mode)
 - Configuration: global `~/.config/agentmux/config.toml`, overridden per-repo
   by `.agentmux.toml` at the repo root (TOML)
 
 ## Layout
 
 - `main.go` — entrypoint and CLI argument parsing
-- `internal/app/` — command implementations (`add.go`, `remove.go`, `list.go`)
+- `internal/app/` — command implementations (`add.go`, `remove.go`, `list.go`,
+  `sidebar.go`, `status.go`)
 - `internal/config/` — TOML config loading and merging
 - `internal/jj/` — jujutsu wrapper
 - `internal/tmuxctl/` — tmux control
+- `internal/sidebar/` — bubbletea sidebar TUI (jj/tmux-agnostic; data in via closures)
 - `internal/run/` — command runner abstraction; `fake.go` is a reusable test fake
 
 ## Build, test, lint

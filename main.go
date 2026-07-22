@@ -17,6 +17,7 @@ Commands:
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
   list                 show feature workspaces and their tmux windows
+  sidebar              toggle a live agent sidebar pane on every tmux window
 
 Config: ~/.config/agentmux/config.toml, overridden per-repo by .agentmux.toml
 `
@@ -51,6 +52,19 @@ func main() {
 		err = a.Remove(fs.Arg(0), *force)
 	case "list":
 		err = a.List()
+	case "sidebar":
+		fs := flag.NewFlagSet("sidebar", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		switch {
+		case fs.NArg() == 0:
+			err = a.Sidebar()
+		case fs.NArg() == 1 && fs.Arg(0) == "run":
+			// Internal mode: runs the TUI inside a spawned sidebar pane.
+			err = a.SidebarRun()
+		default:
+			fmt.Fprintln(os.Stderr, "usage: agentmux sidebar")
+			os.Exit(2)
+		}
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:

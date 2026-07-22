@@ -24,6 +24,9 @@ type App struct {
 	In     io.Reader
 	Getwd  func() (string, error)
 	Getenv func(string) string
+	// Executable resolves the path to the running agentmux binary, used to
+	// spawn sidebar panes.
+	Executable func() (string, error)
 	// GlobalConfig is the path to the global config file ("" to skip).
 	GlobalConfig string
 }
@@ -37,6 +40,7 @@ func New() *App {
 		In:           os.Stdin,
 		Getwd:        os.Getwd,
 		Getenv:       os.Getenv,
+		Executable:   os.Executable,
 		GlobalConfig: config.GlobalPath(),
 	}
 }
