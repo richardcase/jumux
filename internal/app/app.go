@@ -1,4 +1,4 @@
-// Package app orchestrates the agentmux commands over the jj and tmux
+// Package app orchestrates the jumux commands over the jj and tmux
 // wrappers.
 package app
 
@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/config"
-	"github.com/richardcase/agentmux/internal/jj"
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/config"
+	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 var featureNameRe = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9._-]*$`)
@@ -26,12 +26,12 @@ type App struct {
 	In     io.Reader
 	Getwd  func() (string, error)
 	Getenv func(string) string
-	// Executable resolves the path to the running agentmux binary, used to
+	// Executable resolves the path to the running jumux binary, used to
 	// spawn sidebar panes.
 	Executable func() (string, error)
 	// GlobalConfig is the path to the global config file ("" to skip).
 	GlobalConfig string
-	// StateDir holds per-window agent status files written by `agentmux hook`.
+	// StateDir holds per-window agent status files written by `jumux hook`.
 	StateDir string
 	// ClaudeSettings is the path to the Claude Code settings file where Add
 	// offers to install the status hooks ("" to skip the offer).
@@ -79,7 +79,7 @@ func (a *App) now() time.Time {
 
 func (a *App) requireTmux() error {
 	if a.Getenv("TMUX") == "" {
-		return fmt.Errorf("agentmux must be run inside a tmux session")
+		return fmt.Errorf("jumux must be run inside a tmux session")
 	}
 	return nil
 }

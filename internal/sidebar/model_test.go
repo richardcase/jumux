@@ -158,7 +158,7 @@ func TestViewContents(t *testing.T) {
 	out := m.View()
 	// Icons: spinner (auth working), ✓ (billing done + clean), ● (auth
 	// dirty), ? (fix unknown), · (fix agent unknown).
-	for _, want := range []string{"agentmux", "myrepo/auth", "other/fix", "q quit",
+	for _, want := range []string{"jumux", "myrepo/auth", "other/fix", "q quit",
 		spinnerFrames[0], "✓", "●", "?", "·"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q:\n%s", want, out)

@@ -61,11 +61,11 @@ func TestEnsureClaudeHooksCreatesFile(t *testing.T) {
 		"Notification":     "waiting",
 		"Stop":             "done",
 	} {
-		if !strings.Contains(events[event], "agentmux hook "+status) {
+		if !strings.Contains(events[event], "jumux hook "+status) {
 			t.Errorf("event %s missing hook %q: %s", event, status, events[event])
 		}
 	}
-	if !strings.Contains(out.String(), "added agentmux status hooks") {
+	if !strings.Contains(out.String(), "added jumux status hooks") {
 		t.Errorf("expected confirmation output, got %q", out.String())
 	}
 }
@@ -75,7 +75,7 @@ func TestEnsureClaudeHooksMergesPartial(t *testing.T) {
 	existing := `{
   "model": "opus",
   "hooks": {
-    "Stop": [{"hooks": [{"type": "command", "command": "agentmux hook done"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "jumux hook done"}]}],
     "Notification": [{"hooks": [{"type": "command", "command": "say ding"}]}]
   }
 }`
@@ -90,14 +90,14 @@ func TestEnsureClaudeHooksMergesPartial(t *testing.T) {
 		t.Errorf("unrelated settings should survive, got model=%s", settings["model"])
 	}
 	events := hookEventsIn(t, settings)
-	if !strings.Contains(events["UserPromptSubmit"], "agentmux hook working") {
+	if !strings.Contains(events["UserPromptSubmit"], "jumux hook working") {
 		t.Errorf("missing UserPromptSubmit hook: %s", events["UserPromptSubmit"])
 	}
 	if !strings.Contains(events["Notification"], "say ding") ||
-		!strings.Contains(events["Notification"], "agentmux hook waiting") {
+		!strings.Contains(events["Notification"], "jumux hook waiting") {
 		t.Errorf("Notification should keep the existing entry and gain ours: %s", events["Notification"])
 	}
-	if strings.Count(events["Stop"], "agentmux hook done") != 1 {
+	if strings.Count(events["Stop"], "jumux hook done") != 1 {
 		t.Errorf("Stop hook should not be duplicated: %s", events["Stop"])
 	}
 }
@@ -105,10 +105,10 @@ func TestEnsureClaudeHooksMergesPartial(t *testing.T) {
 func TestEnsureClaudeHooksAlreadyConfigured(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	full := `{"hooks": {
-  "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "agentmux hook working"}]}],
-  "PostToolUse": [{"hooks": [{"type": "command", "command": "agentmux hook working"}]}],
-  "Notification": [{"hooks": [{"type": "command", "command": "agentmux hook waiting"}]}],
-  "Stop": [{"hooks": [{"type": "command", "command": "agentmux hook done"}]}]
+  "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "jumux hook working"}]}],
+  "PostToolUse": [{"hooks": [{"type": "command", "command": "jumux hook working"}]}],
+  "Notification": [{"hooks": [{"type": "command", "command": "jumux hook waiting"}]}],
+  "Stop": [{"hooks": [{"type": "command", "command": "jumux hook done"}]}]
 }}`
 	if err := os.WriteFile(path, []byte(full), 0o644); err != nil {
 		t.Fatal(err)

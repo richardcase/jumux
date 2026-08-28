@@ -1,4 +1,4 @@
-BINARY := agentmux
+BINARY := jumux
 
 .PHONY: all build test lint fmt vet clean
 

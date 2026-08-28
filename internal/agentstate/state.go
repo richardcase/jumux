@@ -41,14 +41,14 @@ type Entry struct {
 // past it the agent is assumed dead and the status reads as unknown.
 const WorkingTTL = 15 * time.Minute
 
-// Dir resolves the state directory: $XDG_STATE_HOME/agentmux/status, falling
-// back to ~/.local/state/agentmux/status.
+// Dir resolves the state directory: $XDG_STATE_HOME/jumux/status, falling
+// back to ~/.local/state/jumux/status.
 func Dir(getenv func(string) string) string {
 	base := getenv("XDG_STATE_HOME")
 	if base == "" {
 		base = filepath.Join(getenv("HOME"), ".local", "state")
 	}
-	return filepath.Join(base, "agentmux", "status")
+	return filepath.Join(base, "jumux", "status")
 }
 
 // fileFor maps a tmux window ID (e.g. "@5") to a state file name ("w5.json").

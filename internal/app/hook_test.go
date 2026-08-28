@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 func TestHook(t *testing.T) {

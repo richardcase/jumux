@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 // fixture builds a fake main repo (myrepo with .jj/repo dir + .git) and an
@@ -107,7 +107,7 @@ func TestAddHappyPath(t *testing.T) {
 		"jj workspace add --name billing -r trunk() "+f.wsPath("billing"),
 		"tmux new-window -d -P -F #{window_id} -n billing -c "+f.wsPath("billing"),
 		"tmux set-option -w -t @7 automatic-rename off",
-		"tmux set-option -w -t @7 @agentmux-feature billing",
+		"tmux set-option -w -t @7 @jumux-feature billing",
 		"tmux send-keys -t @7 -l claude",
 		"tmux send-keys -t @7 Enter",
 		"tmux select-window -t @7",
@@ -117,7 +117,7 @@ func TestAddHappyPath(t *testing.T) {
 func TestAddUsesRepoConfigWithFeaturePlaceholder(t *testing.T) {
 	f := newFixture(t)
 	cfg := "agent = \"claude 'work on {feature}'\"\nselect_window = false\nwindow_prefix = \"ai-\"\nbase_revision = \"main\"\n"
-	if err := os.WriteFile(filepath.Join(f.mainRoot, ".agentmux.toml"), []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.app.Add("billing"); err != nil {

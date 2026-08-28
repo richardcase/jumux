@@ -3,14 +3,14 @@ package app
 import (
 	"fmt"
 
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/notify"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/notify"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // Hook records the agent status for the window containing the calling pane.
 // It is invoked from Claude Code hooks, so outside tmux or outside an
-// agentmux feature window it exits silently — a misconfigured hook must
+// jumux feature window it exits silently — a misconfigured hook must
 // never break the agent.
 func (a *App) Hook(status string) error {
 	s := agentstate.Status(status)
@@ -33,7 +33,7 @@ func (a *App) Hook(status string) error {
 		Status:    s,
 		UpdatedAt: now,
 	}); err != nil {
-		_, _ = fmt.Fprintf(a.Errw, "agentmux hook: %v\n", err)
+		_, _ = fmt.Fprintf(a.Errw, "jumux hook: %v\n", err)
 	}
 	a.maybeNotify(feature, prev, s)
 	return nil
@@ -57,7 +57,7 @@ func (a *App) maybeNotify(feature string, prev, next agentstate.Status) {
 	if !notifyEnabled {
 		return
 	}
-	if err := notify.Send(a.Runner, "agentmux: "+feature, string(next)); err != nil {
-		_, _ = fmt.Fprintf(a.Errw, "agentmux hook: notify: %v\n", err)
+	if err := notify.Send(a.Runner, "jumux: "+feature, string(next)); err != nil {
+		_, _ = fmt.Fprintf(a.Errw, "jumux hook: notify: %v\n", err)
 	}
 }

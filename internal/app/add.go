@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/richardcase/agentmux/internal/jj"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // Add creates a jj workspace for feature, opens a tmux window in it, and
@@ -35,7 +35,7 @@ func (a *App) Add(feature string) error {
 		return err
 	}
 	if contains(names, feature) {
-		return fmt.Errorf("workspace %q already exists (agentmux remove %s first)", feature, feature)
+		return fmt.Errorf("workspace %q already exists (jumux remove %s first)", feature, feature)
 	}
 	if _, err := os.Stat(wsPath); err == nil {
 		return fmt.Errorf("directory %s already exists", wsPath)

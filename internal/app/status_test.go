@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/run"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/run"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // statusFixture builds a main repo plus workspace dirs whose .jj/repo

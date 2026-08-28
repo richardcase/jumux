@@ -2,7 +2,7 @@ version: 2
 
 builds:
   - main: .
-    binary: agentmux
+    binary: jumux
     env:
       - CGO_ENABLED=0
     goos:

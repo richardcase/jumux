@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 func TestListAllPanes(t *testing.T) {
@@ -24,7 +24,7 @@ func TestListAllPanes(t *testing.T) {
 	if panes[1].WindowID != "@1" || panes[2].WindowID != "" {
 		t.Errorf("window IDs wrong: %+v", panes)
 	}
-	want := "tmux list-panes -a -F #{pane_id}\t#{window_id}\t#{@agentmux-sidebar}"
+	want := "tmux list-panes -a -F #{pane_id}\t#{window_id}\t#{@jumux-sidebar}"
 	if got := fr.Calls[0].String(); got != want {
 		t.Errorf("command:\n got %q\nwant %q", got, want)
 	}
@@ -60,14 +60,14 @@ func TestSplitWindowLeft(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		return "%9", nil
 	}}
-	id, err := SplitWindowLeft(fr, "@3", "/repo", 32, "/bin/agentmux", "sidebar", "run")
+	id, err := SplitWindowLeft(fr, "@3", "/repo", 32, "/bin/jumux", "sidebar", "run")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "%9" {
 		t.Errorf("pane id: %q", id)
 	}
-	want := "tmux split-window -h -b -d -l 32 -t @3 -c /repo -P -F #{pane_id} /bin/agentmux sidebar run"
+	want := "tmux split-window -h -b -d -l 32 -t @3 -c /repo -P -F #{pane_id} /bin/jumux sidebar run"
 	if got := fr.Calls[0].String(); got != want {
 		t.Errorf("command:\n got %q\nwant %q", got, want)
 	}
@@ -85,7 +85,7 @@ func TestPaneCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.TrimSpace(fr.CommandLines())
-	want := "tmux set-option -p -t %2 @agentmux-sidebar 1\n" +
+	want := "tmux set-option -p -t %2 @jumux-sidebar 1\n" +
 		"tmux kill-pane -t %2\n" +
 		"tmux select-window -t @4\n" +
 		"tmux switch-client -t $1"
@@ -117,7 +117,7 @@ func TestPaneWindowInfo(t *testing.T) {
 			if windowID != tt.wantWindow || feature != tt.wantFeature {
 				t.Errorf("got (%q, %q), want (%q, %q)", windowID, feature, tt.wantWindow, tt.wantFeature)
 			}
-			wantCmd := "tmux display-message -p -t %7 #{window_id}\t#{@agentmux-feature}"
+			wantCmd := "tmux display-message -p -t %7 #{window_id}\t#{@jumux-feature}"
 			if gotCmd := fr.Calls[0].String(); gotCmd != wantCmd {
 				t.Errorf("command %q", gotCmd)
 			}

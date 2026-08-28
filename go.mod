@@ -1,4 +1,4 @@
-module github.com/richardcase/agentmux
+module github.com/richardcase/jumux
 
 go 1.26.5
 
