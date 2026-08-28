@@ -105,11 +105,21 @@ func TestLoadMalformed(t *testing.T) {
 
 func TestAgentCommandSubstitution(t *testing.T) {
 	c := Config{Agent: "claude 'work on {feature}'"}
-	if got := c.AgentCommand("auth"); got != "claude 'work on auth'" {
+	if got := c.AgentCommand("auth", ""); got != "claude 'work on auth'" {
 		t.Errorf("got %q", got)
 	}
 	c = Config{Agent: "claude"}
-	if got := c.AgentCommand("auth"); got != "claude" {
+	if got := c.AgentCommand("auth", ""); got != "claude" {
 		t.Errorf("bare command changed: %q", got)
+	}
+}
+
+func TestAgentCommandOverride(t *testing.T) {
+	c := Config{Agent: "claude"}
+	if got := c.AgentCommand("auth", "aider 'work on {feature}'"); got != "aider 'work on auth'" {
+		t.Errorf("override should win and substitute {feature}, got %q", got)
+	}
+	if got := c.AgentCommand("auth", ""); got != "claude" {
+		t.Errorf("empty override should fall back to configured agent, got %q", got)
 	}
 }

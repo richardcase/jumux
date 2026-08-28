@@ -100,7 +100,7 @@ func (f *fixture) assertNotRan(t *testing.T, substrings ...string) {
 
 func TestAddHappyPath(t *testing.T) {
 	f := newFixture(t)
-	if err := f.app.Add("billing"); err != nil {
+	if err := f.app.Add("billing", ""); err != nil {
 		t.Fatal(err)
 	}
 	f.assertRan(t,
@@ -120,7 +120,7 @@ func TestAddUsesRepoConfigWithFeaturePlaceholder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.app.Add("billing"); err != nil {
+	if err := f.app.Add("billing", ""); err != nil {
 		t.Fatal(err)
 	}
 	f.assertRan(t,
@@ -131,9 +131,31 @@ func TestAddUsesRepoConfigWithFeaturePlaceholder(t *testing.T) {
 	f.assertNotRan(t, "select-window")
 }
 
+func TestAddAgentOverride(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Add("billing", "aider 'work on {feature}'"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "tmux send-keys -t @7 -l aider 'work on billing'")
+	f.assertNotRan(t, "-l claude")
+}
+
+func TestAddAgentOverrideBeatsRepoConfig(t *testing.T) {
+	f := newFixture(t)
+	cfg := "agent = \"claude 'work on {feature}'\"\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Add("billing", "aider"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "tmux send-keys -t @7 -l aider")
+	f.assertNotRan(t, "-l claude")
+}
+
 func TestAddRejectsExistingWorkspace(t *testing.T) {
 	f := newFixture(t)
-	err := f.app.Add("auth")
+	err := f.app.Add("auth", "")
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("got %v", err)
 	}
@@ -142,11 +164,11 @@ func TestAddRejectsExistingWorkspace(t *testing.T) {
 
 func TestAddRejectsInvalidNameAndOutsideTmux(t *testing.T) {
 	f := newFixture(t)
-	if err := f.app.Add("bad name!"); err == nil {
+	if err := f.app.Add("bad name!", ""); err == nil {
 		t.Error("expected invalid-name error")
 	}
 	f.app.Getenv = func(string) string { return "" }
-	if err := f.app.Add("ok"); err == nil || !strings.Contains(err.Error(), "tmux") {
+	if err := f.app.Add("ok", ""); err == nil || !strings.Contains(err.Error(), "tmux") {
 		t.Errorf("expected tmux-required error, got %v", err)
 	}
 }
@@ -154,7 +176,7 @@ func TestAddRejectsInvalidNameAndOutsideTmux(t *testing.T) {
 func TestAddRollsBackWorkspaceWhenWindowFails(t *testing.T) {
 	f := newFixture(t)
 	f.failOn = "tmux new-window"
-	if err := f.app.Add("billing"); err == nil {
+	if err := f.app.Add("billing", ""); err == nil {
 		t.Fatal("expected error")
 	}
 	f.assertRan(t, "jj workspace add --name billing", "jj workspace forget billing")
@@ -163,7 +185,7 @@ func TestAddRollsBackWorkspaceWhenWindowFails(t *testing.T) {
 func TestAddRollsBackEverythingWhenSendKeysFails(t *testing.T) {
 	f := newFixture(t)
 	f.failOn = "tmux send-keys"
-	if err := f.app.Add("billing"); err == nil {
+	if err := f.app.Add("billing", ""); err == nil {
 		t.Fatal("expected error")
 	}
 	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget billing")
