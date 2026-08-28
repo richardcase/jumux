@@ -23,6 +23,8 @@ Commands:
   sidebar              toggle a live agent sidebar pane on every tmux window
   hook <status>        record agent status (working|waiting|done); wired to
                        Claude Code hooks
+  doctor               check the environment (jj, tmux, base_revision,
+                       Claude Code hooks) and print a pass/fail checklist
 
 Config: ~/.config/jumux/config.toml, overridden per-repo by .jumux.toml
 `
@@ -78,6 +80,8 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Hook(os.Args[2])
+	case "doctor":
+		err = a.Doctor()
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:

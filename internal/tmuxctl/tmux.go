@@ -62,6 +62,12 @@ func KillWindow(r run.Runner, windowID string) error {
 	return err
 }
 
+// ServerRunning reports whether the tmux server is reachable.
+func ServerRunning(r run.Runner) error {
+	_, err := r.Run("", "tmux", "list-sessions")
+	return err
+}
+
 // ListWindows returns the windows of the current session.
 func ListWindows(r run.Runner) ([]Window, error) {
 	out, err := r.Run("", "tmux", "list-windows", "-F",

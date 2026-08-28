@@ -106,6 +106,30 @@ func (a *App) ensureClaudeHooks() {
 	_, _ = fmt.Fprintf(a.Out, "added jumux status hooks to %s\n", a.ClaudeSettings)
 }
 
+// missingClaudeHookEvents reads settingsPath and returns which jumux status
+// hook events are missing, without writing anything. A missing settings
+// file counts as every event missing.
+func missingClaudeHookEvents(settingsPath string) ([]hookEvent, error) {
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return hookEvents, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", settingsPath, err)
+	}
+	settings := map[string]json.RawMessage{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", settingsPath, err)
+	}
+	hooks := map[string]json.RawMessage{}
+	if raw, ok := settings["hooks"]; ok {
+		if err := json.Unmarshal(raw, &hooks); err != nil {
+			return nil, fmt.Errorf("parsing hooks in %s: %w", settingsPath, err)
+		}
+	}
+	return missingHookEvents(hooks), nil
+}
+
 // missingHookEvents returns the hook events with no entry whose command
 // invokes `jumux hook`.
 func missingHookEvents(hooks map[string]json.RawMessage) []hookEvent {
