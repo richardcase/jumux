@@ -73,11 +73,14 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	footer := "j/k move · ⏎ jump · q quit"
-	if m.err != nil {
+	var footer string
+	switch {
+	case m.confirming:
+		footer = errStyle.Render(truncate("remove '"+m.pendingRemove.Label+"'? y/n", m.width))
+	case m.err != nil:
 		footer = errStyle.Render(truncate(m.err.Error(), m.width))
-	} else {
-		footer = footerStyle.Render(truncate(footer, m.width))
+	default:
+		footer = footerStyle.Render(truncate("j/k move · ⏎ jump · d remove · q quit", m.width))
 	}
 	b.WriteString("\n")
 	b.WriteString(footer)

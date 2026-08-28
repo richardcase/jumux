@@ -166,6 +166,52 @@ func TestSidebarRunFetchAgentStatusAndPrune(t *testing.T) {
 	}
 }
 
+func TestSidebarRunDConfirmRemovesFeature(t *testing.T) {
+	f := sidebarFixture(t)
+	f.app.StateDir = t.TempDir()
+	if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: "@2", Status: agentstate.Done, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	// ListAllWindows (fetch, "-a") and ListWindows (Remove, session-scoped)
+	// share the "tmux list-windows" prefix but need different column shapes.
+	base := f.runner.Handler
+	f.runner.Handler = func(dir, name string, args ...string) (string, error) {
+		if name == "tmux" && len(args) > 0 && args[0] == "list-windows" && !strings.Contains(strings.Join(args, " "), "-a") {
+			return "@1\tzsh\t\n@2\tauth\tauth", nil
+		}
+		return base(dir, name, args...)
+	}
+
+	orig := runProgram
+	defer func() { runProgram = orig }()
+	var sm sidebar.Model
+	runProgram = func(m tea.Model) (tea.Model, error) {
+		batch, ok := m.Init()().(tea.BatchMsg)
+		if !ok || len(batch) == 0 {
+			t.Fatal("Init should return a batch")
+		}
+		next, _ := m.Update(batch[0]())
+		next, cmd := next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+		if cmd != nil {
+			t.Fatal("d should not have a side effect before confirmation")
+		}
+		next, cmd = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+		if cmd == nil {
+			t.Fatal("y should return a Cmd")
+		}
+		next, _ = next.Update(cmd())
+		sm = next.(sidebar.Model)
+		return sm, nil
+	}
+	if err := f.app.SidebarRun(); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "tmux kill-window -t @2")
+	if got := agentstate.ReadAll(f.app.StateDir, time.Now()); len(got) != 0 {
+		t.Errorf("agent state should be removed for @2, got %v", got)
+	}
+}
+
 func TestAddSplitsSidebarPaneWhenActive(t *testing.T) {
 	f := newFixture(t)
 	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
