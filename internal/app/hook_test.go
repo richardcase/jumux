@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,6 +30,20 @@ func TestHook(t *testing.T) {
 			tmuxPane: "%3",
 			display:  "@5\tauth",
 			want:     map[string]agentstate.Status{"@5": agentstate.Working},
+		},
+		{
+			name:     "records blocked status",
+			status:   "blocked",
+			tmuxPane: "%3",
+			display:  "@5\tauth",
+			want:     map[string]agentstate.Status{"@5": agentstate.Blocked},
+		},
+		{
+			name:     "records error status",
+			status:   "error",
+			tmuxPane: "%3",
+			display:  "@5\tauth",
+			want:     map[string]agentstate.Status{"@5": agentstate.Error},
 		},
 		{
 			name:    "invalid status errors",
@@ -59,6 +74,7 @@ func TestHook(t *testing.T) {
 				Errw:     &bytes.Buffer{},
 				StateDir: dir,
 				Now:      func() time.Time { return now },
+				Getwd:    func() (string, error) { return "", errors.New("no repo") },
 				Getenv: func(k string) string {
 					if k == "TMUX_PANE" {
 						return tt.tmuxPane
@@ -144,6 +160,18 @@ func TestHookNotify(t *testing.T) {
 		{
 			name:             "notifies on transition to done",
 			status:           "done",
+			wantConfigLoaded: true,
+			wantNotify:       true,
+		},
+		{
+			name:             "notifies on transition to blocked",
+			status:           "blocked",
+			wantConfigLoaded: true,
+			wantNotify:       true,
+		},
+		{
+			name:             "notifies on transition to error",
+			status:           "error",
 			wantConfigLoaded: true,
 			wantNotify:       true,
 		},

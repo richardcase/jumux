@@ -14,7 +14,7 @@ import (
 type Item struct {
 	Label     string // "repo/feature"
 	Status    string // "clean" | "dirty" | "unknown"
-	Agent     string // "working" | "waiting" | "done" | "" (unknown)
+	Agent     string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
 	Activity  bool
 	SessionID string
 	WindowID  string
