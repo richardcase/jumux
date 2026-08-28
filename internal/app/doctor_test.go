@@ -41,7 +41,11 @@ func TestDoctorAllPass(t *testing.T) {
 	settingsJSON := `{"hooks":{
 		"UserPromptSubmit":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
 		"PostToolUse":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
-		"Notification":[{"hooks":[{"type":"command","command":"jumux hook waiting"}]}],
+		"Notification":[
+			{"matcher":"permission_prompt","hooks":[{"type":"command","command":"jumux hook blocked"}]},
+			{"matcher":"idle_prompt","hooks":[{"type":"command","command":"jumux hook waiting"}]}
+		],
+		"PostToolUseFailure":[{"hooks":[{"type":"command","command":"jumux hook error"}]}],
 		"Stop":[{"hooks":[{"type":"command","command":"jumux hook done"}]}]
 	}}`
 	if err := os.WriteFile(settingsPath, []byte(settingsJSON), 0o644); err != nil {
@@ -116,7 +120,7 @@ func TestDoctorReportsFailures(t *testing.T) {
 		"[FAIL] repo colocated with git",
 		"[FAIL] tmux running",
 		"[FAIL] base_revision",
-		"[FAIL] Claude Code hooks installed — missing: UserPromptSubmit, PostToolUse, Notification, Stop",
+		"[FAIL] Claude Code hooks installed — missing: UserPromptSubmit, PostToolUse, Notification (permission_prompt), Notification (idle_prompt), PostToolUseFailure, Stop",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q, got:\n%s", want, got)

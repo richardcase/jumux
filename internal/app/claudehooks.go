@@ -8,22 +8,27 @@ import (
 	"strings"
 )
 
-// hookEvent maps one Claude Code hook event to the agent status it records.
+// hookEvent maps one Claude Code hook event, optionally scoped to a
+// Notification matcher, to the agent status it records.
 type hookEvent struct {
-	Event  string
-	Status string
+	Event   string
+	Matcher string // "" for events with no matcher (e.g. Stop)
+	Status  string
 }
 
 var hookEvents = []hookEvent{
-	{"UserPromptSubmit", "working"},
-	{"PostToolUse", "working"},
-	{"Notification", "waiting"},
-	{"Stop", "done"},
+	{"UserPromptSubmit", "", "working"},
+	{"PostToolUse", "", "working"},
+	{"Notification", "permission_prompt", "blocked"},
+	{"Notification", "idle_prompt", "waiting"},
+	{"PostToolUseFailure", "", "error"},
+	{"Stop", "", "done"},
 }
 
 // claudeHookEntry mirrors the Claude Code settings hooks schema.
 type claudeHookEntry struct {
-	Hooks []claudeHookCommand `json:"hooks"`
+	Matcher string              `json:"matcher,omitempty"`
+	Hooks   []claudeHookCommand `json:"hooks"`
 }
 
 type claudeHookCommand struct {
@@ -68,20 +73,20 @@ func (a *App) ensureClaudeHooks() {
 	}
 
 	for _, he := range missing {
-		var entries []json.RawMessage
+		var entries []claudeHookEntry
 		if raw, ok := hooks[he.Event]; ok {
 			if err := json.Unmarshal(raw, &entries); err != nil {
 				_, _ = fmt.Fprintf(a.Errw, "warning: cannot parse %s hooks; skipping hook setup\n", he.Event)
 				return
 			}
 		}
-		entry, err := json.Marshal(claudeHookEntry{Hooks: []claudeHookCommand{
-			{Type: "command", Command: "jumux hook " + he.Status},
-		}})
-		if err != nil {
-			return
-		}
-		entries = append(entries, entry)
+		entries = removeSupersededEntries(entries, he)
+		entries = append(entries, claudeHookEntry{
+			Matcher: he.Matcher,
+			Hooks: []claudeHookCommand{
+				{Type: "command", Command: "jumux hook " + he.Status},
+			},
+		})
 		merged, err := json.Marshal(entries)
 		if err != nil {
 			return
@@ -130,17 +135,68 @@ func missingClaudeHookEvents(settingsPath string) ([]hookEvent, error) {
 	return missingHookEvents(hooks), nil
 }
 
-// missingHookEvents returns the hook events with no entry whose command
-// invokes `jumux hook`.
+// missingHookEvents returns the hook events with no entry, scoped to the
+// right matcher, whose command invokes `jumux hook`.
 func missingHookEvents(hooks map[string]json.RawMessage) []hookEvent {
 	var missing []hookEvent
 	for _, he := range hookEvents {
-		if raw, ok := hooks[he.Event]; ok && strings.Contains(string(raw), "jumux hook") {
+		if hasJumuxHook(hooks[he.Event], he.Matcher) {
 			continue
 		}
 		missing = append(missing, he)
 	}
 	return missing
+}
+
+// hasJumuxHook reports whether raw (an event's hook entry array) already
+// contains a jumux-managed command scoped to matcher.
+func hasJumuxHook(raw json.RawMessage, matcher string) bool {
+	if raw == nil {
+		return false
+	}
+	var entries []claudeHookEntry
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Matcher != matcher {
+			continue
+		}
+		for _, c := range e.Hooks {
+			if strings.Contains(c.Command, "jumux hook") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// removeSupersededEntries drops legacy jumux entries that a new
+// matcher-scoped entry replaces: the old bare Notification hook (no
+// matcher) reported "waiting" for every notification, now split into
+// permission_prompt/idle_prompt-scoped entries.
+func removeSupersededEntries(entries []claudeHookEntry, he hookEvent) []claudeHookEntry {
+	if he.Event != "Notification" || he.Matcher == "" {
+		return entries
+	}
+	var kept []claudeHookEntry
+	for _, e := range entries {
+		if e.Matcher == "" && hasCommand(e.Hooks, "jumux hook waiting") {
+			continue
+		}
+		kept = append(kept, e)
+	}
+	return kept
+}
+
+// hasCommand reports whether hooks contains a command exactly matching cmd.
+func hasCommand(hooks []claudeHookCommand, cmd string) bool {
+	for _, c := range hooks {
+		if c.Command == cmd {
+			return true
+		}
+	}
+	return false
 }
 
 // writeFileAtomic writes data via a temp file + rename, creating parent dirs.

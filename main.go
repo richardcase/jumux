@@ -21,7 +21,8 @@ Commands:
                        (name defaults to the current feature)
   list                 show feature workspaces and their tmux windows
   sidebar              toggle a live agent sidebar pane on every tmux window
-  hook <status>        record agent status (working|waiting|done); wired to
+  hook <status>        record agent status
+                       (working|waiting|done|blocked|error); wired to
                        Claude Code hooks
   doctor               check the environment (jj, tmux, base_revision,
                        Claude Code hooks) and print a pass/fail checklist
@@ -76,7 +77,7 @@ func main() {
 		}
 	case "hook":
 		if len(os.Args) != 3 {
-			fmt.Fprintln(os.Stderr, "usage: jumux hook <working|waiting|done>")
+			fmt.Fprintln(os.Stderr, "usage: jumux hook <working|waiting|done|blocked|error>")
 			os.Exit(2)
 		}
 		err = a.Hook(os.Args[2])

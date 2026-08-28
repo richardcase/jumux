@@ -140,6 +140,9 @@ func (a *App) checkClaudeHooks() doctorCheck {
 		events := make([]string, len(missing))
 		for i, he := range missing {
 			events[i] = he.Event
+			if he.Matcher != "" {
+				events[i] += " (" + he.Matcher + ")"
+			}
 		}
 		return doctorCheck{
 			Name:        name,

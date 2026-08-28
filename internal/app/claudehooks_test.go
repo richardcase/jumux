@@ -56,14 +56,21 @@ func TestEnsureClaudeHooksCreatesFile(t *testing.T) {
 
 	events := hookEventsIn(t, readSettings(t, path))
 	for event, status := range map[string]string{
-		"UserPromptSubmit": "working",
-		"PostToolUse":      "working",
-		"Notification":     "waiting",
-		"Stop":             "done",
+		"UserPromptSubmit":   "working",
+		"PostToolUse":        "working",
+		"PostToolUseFailure": "error",
+		"Stop":               "done",
 	} {
 		if !strings.Contains(events[event], "jumux hook "+status) {
 			t.Errorf("event %s missing hook %q: %s", event, status, events[event])
 		}
+	}
+	notification := events["Notification"]
+	if !strings.Contains(notification, `"matcher": "permission_prompt"`) || !strings.Contains(notification, "jumux hook blocked") {
+		t.Errorf("Notification missing permission_prompt->blocked entry: %s", notification)
+	}
+	if !strings.Contains(notification, `"matcher": "idle_prompt"`) || !strings.Contains(notification, "jumux hook waiting") {
+		t.Errorf("Notification missing idle_prompt->waiting entry: %s", notification)
 	}
 	if !strings.Contains(out.String(), "added jumux status hooks") {
 		t.Errorf("expected confirmation output, got %q", out.String())
@@ -93,12 +100,41 @@ func TestEnsureClaudeHooksMergesPartial(t *testing.T) {
 	if !strings.Contains(events["UserPromptSubmit"], "jumux hook working") {
 		t.Errorf("missing UserPromptSubmit hook: %s", events["UserPromptSubmit"])
 	}
-	if !strings.Contains(events["Notification"], "say ding") ||
-		!strings.Contains(events["Notification"], "jumux hook waiting") {
-		t.Errorf("Notification should keep the existing entry and gain ours: %s", events["Notification"])
+	notification := events["Notification"]
+	if !strings.Contains(notification, "say ding") {
+		t.Errorf("Notification should keep the unrelated existing entry: %s", notification)
+	}
+	if !strings.Contains(notification, "jumux hook blocked") || !strings.Contains(notification, "jumux hook waiting") {
+		t.Errorf("Notification should gain blocked and waiting entries: %s", notification)
 	}
 	if strings.Count(events["Stop"], "jumux hook done") != 1 {
 		t.Errorf("Stop hook should not be duplicated: %s", events["Stop"])
+	}
+	if !strings.Contains(events["PostToolUseFailure"], "jumux hook error") {
+		t.Errorf("missing PostToolUseFailure hook: %s", events["PostToolUseFailure"])
+	}
+}
+
+func TestEnsureClaudeHooksReplacesLegacyNotification(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	existing := `{"hooks": {
+  "Notification": [{"hooks": [{"type": "command", "command": "jumux hook waiting"}]}]
+}}`
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a, _, _ := hooksApp(t, path, "y\n")
+	a.ensureClaudeHooks()
+
+	notification := hookEventsIn(t, readSettings(t, path))["Notification"]
+	if !strings.Contains(notification, `"matcher": "permission_prompt"`) || !strings.Contains(notification, "jumux hook blocked") {
+		t.Errorf("Notification missing permission_prompt->blocked entry: %s", notification)
+	}
+	if !strings.Contains(notification, `"matcher": "idle_prompt"`) || !strings.Contains(notification, "jumux hook waiting") {
+		t.Errorf("Notification missing idle_prompt->waiting entry: %s", notification)
+	}
+	if strings.Count(notification, "jumux hook waiting") != 1 {
+		t.Errorf("legacy waiting entry should not coexist with the new one: %s", notification)
 	}
 }
 
@@ -107,7 +143,11 @@ func TestEnsureClaudeHooksAlreadyConfigured(t *testing.T) {
 	full := `{"hooks": {
   "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "jumux hook working"}]}],
   "PostToolUse": [{"hooks": [{"type": "command", "command": "jumux hook working"}]}],
-  "Notification": [{"hooks": [{"type": "command", "command": "jumux hook waiting"}]}],
+  "Notification": [
+    {"matcher": "permission_prompt", "hooks": [{"type": "command", "command": "jumux hook blocked"}]},
+    {"matcher": "idle_prompt", "hooks": [{"type": "command", "command": "jumux hook waiting"}]}
+  ],
+  "PostToolUseFailure": [{"hooks": [{"type": "command", "command": "jumux hook error"}]}],
   "Stop": [{"hooks": [{"type": "command", "command": "jumux hook done"}]}]
 }}`
 	if err := os.WriteFile(path, []byte(full), 0o644); err != nil {

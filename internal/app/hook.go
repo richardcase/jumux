@@ -15,7 +15,7 @@ import (
 func (a *App) Hook(status string) error {
 	s := agentstate.Status(status)
 	if !agentstate.Valid(s) {
-		return fmt.Errorf("invalid status %q (want working|waiting|done)", status)
+		return fmt.Errorf("invalid status %q (want working|waiting|done|blocked|error)", status)
 	}
 	paneID := a.Getenv("TMUX_PANE")
 	if paneID == "" {
@@ -40,11 +40,14 @@ func (a *App) Hook(status string) error {
 }
 
 // maybeNotify sends a desktop notification when the agent has newly moved
-// to a status the user cares about (waiting for input, or done). It never
-// fires for a status the window was already in, so repeated hook calls with
-// the same status (e.g. multiple PostToolUse events) don't spam.
+// to a status the user cares about (waiting for input, done, blocked, or
+// errored). It never fires for a status the window was already in, so
+// repeated hook calls with the same status (e.g. multiple PostToolUse
+// events) don't spam.
 func (a *App) maybeNotify(feature string, prev, next agentstate.Status) {
-	if next != agentstate.Waiting && next != agentstate.Done {
+	switch next {
+	case agentstate.Waiting, agentstate.Done, agentstate.Blocked, agentstate.Error:
+	default:
 		return
 	}
 	if prev == next {

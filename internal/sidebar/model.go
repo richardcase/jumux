@@ -15,7 +15,7 @@ type Item struct {
 	Label     string // "repo/feature"
 	Feature   string // raw feature name, used to remove
 	Status    string // "clean" | "dirty" | "unknown"
-	Agent     string // "working" | "waiting" | "done" | "" (unknown)
+	Agent     string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
 	Activity  bool
 	SessionID string
 	WindowID  string

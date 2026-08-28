@@ -21,7 +21,8 @@ var (
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // agentIcon renders the agent-liveness column: an animated spinner while the
-// agent works, ? while it waits for input, ✓ when done, · with no data.
+// agent works, ? while it waits for input, ✓ when done, ! when blocked on a
+// permission prompt, ✗ on a tool error, · with no data.
 func agentIcon(agent string, frame int) string {
 	switch agent {
 	case "working":
@@ -30,6 +31,10 @@ func agentIcon(agent string, frame int) string {
 		return dirtyStyle.Render("?")
 	case "done":
 		return cleanStyle.Render("✓")
+	case "blocked":
+		return errStyle.Render("!")
+	case "error":
+		return errStyle.Render("✗")
 	}
 	return unknownStyle.Render("·")
 }

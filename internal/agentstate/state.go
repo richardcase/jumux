@@ -18,12 +18,14 @@ const (
 	Working Status = "working"
 	Waiting Status = "waiting"
 	Done    Status = "done"
+	Blocked Status = "blocked"
+	Error   Status = "error"
 )
 
 // Valid reports whether s is one of the known statuses.
 func Valid(s Status) bool {
 	switch s {
-	case Working, Waiting, Done:
+	case Working, Waiting, Done, Blocked, Error:
 		return true
 	}
 	return false
@@ -92,7 +94,7 @@ func Write(dir string, e Entry) error {
 // ReadAll returns windowID -> status for every readable entry. Unparseable
 // files are skipped, a missing directory yields an empty map, and "working"
 // entries older than WorkingTTL are dropped (dead agents shouldn't spin
-// forever; waiting/done are stable end states with no TTL).
+// forever; waiting/done/blocked/error are stable end states with no TTL).
 func ReadAll(dir string, now time.Time) map[string]Status {
 	statuses := map[string]Status{}
 	entries, err := os.ReadDir(dir)

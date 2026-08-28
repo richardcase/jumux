@@ -9,6 +9,28 @@ import (
 
 var now = time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 
+func TestValid(t *testing.T) {
+	tests := []struct {
+		status Status
+		want   bool
+	}{
+		{Working, true},
+		{Waiting, true},
+		{Done, true},
+		{Blocked, true},
+		{Error, true},
+		{Status("napping"), false},
+		{Status(""), false},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			if got := Valid(tt.status); got != tt.want {
+				t.Errorf("Valid(%q) = %v, want %v", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDir(t *testing.T) {
 	tests := []struct {
 		name string
@@ -63,6 +85,14 @@ func TestWriteReadAll(t *testing.T) {
 				{WindowID: "@1", Status: Waiting, UpdatedAt: now.Add(-24 * time.Hour)},
 			},
 			want: map[string]Status{"@1": Waiting},
+		},
+		{
+			name: "stale blocked and error kept",
+			entries: []Entry{
+				{WindowID: "@1", Status: Blocked, UpdatedAt: now.Add(-24 * time.Hour)},
+				{WindowID: "@2", Status: Error, UpdatedAt: now.Add(-24 * time.Hour)},
+			},
+			want: map[string]Status{"@1": Blocked, "@2": Error},
 		},
 		{
 			name: "rewrite replaces",

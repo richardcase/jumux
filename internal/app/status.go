@@ -16,7 +16,7 @@ type FeatureStatus struct {
 	Repo        string // base name of the row's jj main root
 	Feature     string
 	Status      string // "clean" | "dirty" | "unknown"
-	AgentStatus string // "working" | "waiting" | "done" | "" (unknown)
+	AgentStatus string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
 	SessionID   string
 	SessionName string
 	WindowID    string
