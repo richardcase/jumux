@@ -67,10 +67,15 @@ func Load(globalPath, repoRoot string) (Config, error) {
 	return cfg, nil
 }
 
-// AgentCommand returns the agent command with any {feature} placeholder
-// substituted.
-func (c Config) AgentCommand(feature string) string {
-	return strings.ReplaceAll(c.Agent, "{feature}", feature)
+// AgentCommand returns the agent command to launch for feature, with any
+// {feature} placeholder substituted. If override is non-empty it is used
+// in place of the configured agent.
+func (c Config) AgentCommand(feature, override string) string {
+	cmd := c.Agent
+	if override != "" {
+		cmd = override
+	}
+	return strings.ReplaceAll(cmd, "{feature}", feature)
 }
 
 // SelectWindowEnabled reports whether add should switch to the new window

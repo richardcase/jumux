@@ -170,7 +170,7 @@ func TestAddSplitsSidebarPaneWhenActive(t *testing.T) {
 	f := newFixture(t)
 	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
 	f.responses["tmux list-panes"] = "%5\t@1\t1"
-	if err := f.app.Add("billing"); err != nil {
+	if err := f.app.Add("billing", ""); err != nil {
 		t.Fatal(err)
 	}
 	f.assertRan(t, "tmux split-window -h -b -d -l 32 -t @7")
@@ -179,7 +179,7 @@ func TestAddSplitsSidebarPaneWhenActive(t *testing.T) {
 func TestAddSkipsSidebarPaneWhenInactive(t *testing.T) {
 	f := newFixture(t)
 	f.responses["tmux list-panes"] = "%1\t@1\t"
-	if err := f.app.Add("billing"); err != nil {
+	if err := f.app.Add("billing", ""); err != nil {
 		t.Fatal(err)
 	}
 	f.assertNotRan(t, "split-window")
@@ -190,7 +190,7 @@ func TestAddSidebarSplitFailureIsNotFatal(t *testing.T) {
 	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
 	f.responses["tmux list-panes"] = "%5\t@1\t1"
 	f.failOn = "tmux split-window"
-	if err := f.app.Add("billing"); err != nil {
+	if err := f.app.Add("billing", ""); err != nil {
 		t.Fatalf("add must succeed despite sidebar failure: %v", err)
 	}
 	if !strings.Contains(f.err.String(), "sidebar:") {

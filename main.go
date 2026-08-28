@@ -13,7 +13,10 @@ import (
 const usage = `Usage: jumux <command> [args]
 
 Commands:
-  add <feature>        create a jj workspace + tmux window and start the agent
+  add [-a AGENT] <feature>
+                       create a jj workspace + tmux window and start the
+                       agent (-a/--agent overrides the configured agent
+                       command for this feature)
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
   list                 show feature workspaces and their tmux windows
@@ -36,12 +39,14 @@ func main() {
 	switch os.Args[1] {
 	case "add":
 		fs := flag.NewFlagSet("add", flag.ExitOnError)
+		agent := fs.String("agent", "", "override the configured agent command for this feature")
+		fs.StringVar(agent, "a", *agent, "shorthand for -agent")
 		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() != 1 {
-			fmt.Fprintln(os.Stderr, "usage: jumux add <feature>")
+			fmt.Fprintln(os.Stderr, "usage: jumux add [-a AGENT|--agent AGENT] <feature>")
 			os.Exit(2)
 		}
-		err = a.Add(fs.Arg(0))
+		err = a.Add(fs.Arg(0), *agent)
 	case "remove":
 		fs := flag.NewFlagSet("remove", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the dirty working-copy confirmation")

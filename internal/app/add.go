@@ -9,8 +9,9 @@ import (
 )
 
 // Add creates a jj workspace for feature, opens a tmux window in it, and
-// starts the configured agent.
-func (a *App) Add(feature string) error {
+// starts the configured agent. If agentOverride is non-empty it replaces
+// the configured agent command for this feature only.
+func (a *App) Add(feature, agentOverride string) error {
 	if err := validFeatureName(feature); err != nil {
 		return err
 	}
@@ -76,7 +77,7 @@ func (a *App) Add(feature string) error {
 		rollbackAll()
 		return err
 	}
-	if err := tmuxctl.SendCommand(a.Runner, windowID, ctx.Config.AgentCommand(feature)); err != nil {
+	if err := tmuxctl.SendCommand(a.Runner, windowID, ctx.Config.AgentCommand(feature, agentOverride)); err != nil {
 		rollbackAll()
 		return err
 	}
