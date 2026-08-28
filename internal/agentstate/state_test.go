@@ -18,12 +18,12 @@ func TestDir(t *testing.T) {
 		{
 			name: "xdg state home",
 			env:  map[string]string{"XDG_STATE_HOME": "/xdg/state"},
-			want: "/xdg/state/agentmux/status",
+			want: "/xdg/state/jumux/status",
 		},
 		{
 			name: "fallback to home",
 			env:  map[string]string{"HOME": "/home/u"},
-			want: "/home/u/.local/state/agentmux/status",
+			want: "/home/u/.local/state/jumux/status",
 		},
 	}
 	for _, tt := range tests {

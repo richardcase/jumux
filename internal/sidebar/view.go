@@ -47,7 +47,7 @@ func jjIcon(status string) string {
 
 func (m Model) View() string {
 	var b strings.Builder
-	b.WriteString(headerStyle.Render(truncate("agentmux", m.width)))
+	b.WriteString(headerStyle.Render(truncate("jumux", m.width)))
 	b.WriteString("\n\n")
 
 	if len(m.items) == 0 {

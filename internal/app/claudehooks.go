@@ -31,7 +31,7 @@ type claudeHookCommand struct {
 	Command string `json:"command"`
 }
 
-// ensureClaudeHooks checks the Claude Code settings for the agentmux status
+// ensureClaudeHooks checks the Claude Code settings for the jumux status
 // hooks and, when any are missing, offers to add them. It only ever reports
 // problems on Errw — hook setup must never block feature creation.
 func (a *App) ensureClaudeHooks() {
@@ -76,7 +76,7 @@ func (a *App) ensureClaudeHooks() {
 			}
 		}
 		entry, err := json.Marshal(claudeHookEntry{Hooks: []claudeHookCommand{
-			{Type: "command", Command: "agentmux hook " + he.Status},
+			{Type: "command", Command: "jumux hook " + he.Status},
 		}})
 		if err != nil {
 			return
@@ -103,15 +103,15 @@ func (a *App) ensureClaudeHooks() {
 		_, _ = fmt.Fprintf(a.Errw, "warning: cannot write %s: %v\n", a.ClaudeSettings, err)
 		return
 	}
-	_, _ = fmt.Fprintf(a.Out, "added agentmux status hooks to %s\n", a.ClaudeSettings)
+	_, _ = fmt.Fprintf(a.Out, "added jumux status hooks to %s\n", a.ClaudeSettings)
 }
 
 // missingHookEvents returns the hook events with no entry whose command
-// invokes `agentmux hook`.
+// invokes `jumux hook`.
 func missingHookEvents(hooks map[string]json.RawMessage) []hookEvent {
 	var missing []hookEvent
 	for _, he := range hookEvents {
-		if raw, ok := hooks[he.Event]; ok && strings.Contains(string(raw), "agentmux hook") {
+		if raw, ok := hooks[he.Event]; ok && strings.Contains(string(raw), "jumux hook") {
 			continue
 		}
 		missing = append(missing, he)

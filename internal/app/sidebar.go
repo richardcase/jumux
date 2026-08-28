@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/config"
-	"github.com/richardcase/agentmux/internal/jj"
-	"github.com/richardcase/agentmux/internal/run"
-	"github.com/richardcase/agentmux/internal/sidebar"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/config"
+	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/run"
+	"github.com/richardcase/jumux/internal/sidebar"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // runProgram runs the bubbletea program; a var so tests can stub it.

@@ -4,17 +4,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
-// SidebarOption is the tmux pane option that marks agentmux sidebar panes.
-const SidebarOption = "@agentmux-sidebar"
+// SidebarOption is the tmux pane option that marks jumux sidebar panes.
+const SidebarOption = "@jumux-sidebar"
 
 // Pane is one row from list-panes.
 type Pane struct {
 	ID       string // %N
 	WindowID string // @N
-	Sidebar  bool   // @agentmux-sidebar option set
+	Sidebar  bool   // @jumux-sidebar option set
 }
 
 // GlobalWindow is one row from list-windows -a (any session).
@@ -23,7 +23,7 @@ type GlobalWindow struct {
 	SessionName string
 	ID          string // @N
 	Name        string
-	Feature     string // value of @agentmux-feature, "" if unset
+	Feature     string // value of @jumux-feature, "" if unset
 	Path        string // pane_current_path of the active pane
 	Activity    bool   // window_activity_flag
 }
@@ -114,7 +114,7 @@ func SwitchToWindow(r run.Runner, sessionID, windowID string) error {
 }
 
 // PaneWindowInfo returns the pane's window ID and that window's
-// @agentmux-feature value ("" if unset), in a single tmux call.
+// @jumux-feature value ("" if unset), in a single tmux call.
 func PaneWindowInfo(r run.Runner, paneID string) (windowID, feature string, err error) {
 	out, err := r.Run("", "tmux", "display-message", "-p", "-t", paneID,
 		"#{window_id}\t#{"+FeatureOption+"}")

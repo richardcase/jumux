@@ -8,8 +8,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/sidebar"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/sidebar"
 )
 
 // sidebarFixture extends the base fixture with global list-panes /
@@ -17,7 +17,7 @@ import (
 func sidebarFixture(t *testing.T) *fixture {
 	t.Helper()
 	f := newFixture(t)
-	f.app.Executable = func() (string, error) { return "/bin/agentmux", nil }
+	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
 	// No sidebar panes yet; two windows across two sessions.
 	f.responses["tmux list-panes"] = "%1\t@1\t\n%2\t@2\t"
 	f.responses["tmux list-windows"] = "$0\tmain\t@1\tzsh\t\t/home/me\t0\n" +
@@ -31,9 +31,9 @@ func TestSidebarToggleOn(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertRan(t,
-		"tmux split-window -h -b -d -l 32 -t @1 -c "+f.mainRoot+" -P -F #{pane_id} /bin/agentmux sidebar run",
+		"tmux split-window -h -b -d -l 32 -t @1 -c "+f.mainRoot+" -P -F #{pane_id} /bin/jumux sidebar run",
 		"tmux split-window -h -b -d -l 32 -t @2",
-		"tmux set-option -p -t  @agentmux-sidebar 1",
+		"tmux set-option -p -t  @jumux-sidebar 1",
 	)
 	f.assertNotRan(t, "kill-pane")
 	if !strings.Contains(f.out.String(), "sidebar opened in 2 windows") {
@@ -43,7 +43,7 @@ func TestSidebarToggleOn(t *testing.T) {
 
 func TestSidebarToggleOnUsesConfiguredWidth(t *testing.T) {
 	f := sidebarFixture(t)
-	cfg := filepath.Join(f.mainRoot, ".agentmux.toml")
+	cfg := filepath.Join(f.mainRoot, ".jumux.toml")
 	if err := os.WriteFile(cfg, []byte("sidebar_width = 45\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestSidebarRunFetchAgentStatusAndPrune(t *testing.T) {
 
 func TestAddSplitsSidebarPaneWhenActive(t *testing.T) {
 	f := newFixture(t)
-	f.app.Executable = func() (string, error) { return "/bin/agentmux", nil }
+	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
 	f.responses["tmux list-panes"] = "%5\t@1\t1"
 	if err := f.app.Add("billing"); err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestAddSkipsSidebarPaneWhenInactive(t *testing.T) {
 
 func TestAddSidebarSplitFailureIsNotFatal(t *testing.T) {
 	f := newFixture(t)
-	f.app.Executable = func() (string, error) { return "/bin/agentmux", nil }
+	f.app.Executable = func() (string, error) { return "/bin/jumux", nil }
 	f.responses["tmux list-panes"] = "%5\t@1\t1"
 	f.failOn = "tmux split-window"
 	if err := f.app.Add("billing"); err != nil {

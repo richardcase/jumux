@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 func TestWorkspacesParsing(t *testing.T) {

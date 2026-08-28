@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/richardcase/agentmux/internal/jj"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // List prints every non-default jj workspace joined with its tmux window.

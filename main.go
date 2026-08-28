@@ -1,4 +1,4 @@
-// agentmux eases working with multiple coding agents by pairing jujutsu
+// jumux eases working with multiple coding agents by pairing jujutsu
 // workspaces with tmux windows.
 package main
 
@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/richardcase/agentmux/internal/app"
+	"github.com/richardcase/jumux/internal/app"
 )
 
-const usage = `Usage: agentmux <command> [args]
+const usage = `Usage: jumux <command> [args]
 
 Commands:
   add <feature>        create a jj workspace + tmux window and start the agent
@@ -21,7 +21,7 @@ Commands:
   hook <status>        record agent status (working|waiting|done); wired to
                        Claude Code hooks
 
-Config: ~/.config/agentmux/config.toml, overridden per-repo by .agentmux.toml
+Config: ~/.config/jumux/config.toml, overridden per-repo by .jumux.toml
 `
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 		fs := flag.NewFlagSet("add", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() != 1 {
-			fmt.Fprintln(os.Stderr, "usage: agentmux add <feature>")
+			fmt.Fprintln(os.Stderr, "usage: jumux add <feature>")
 			os.Exit(2)
 		}
 		err = a.Add(fs.Arg(0))
@@ -48,7 +48,7 @@ func main() {
 		fs.BoolVar(force, "f", *force, "shorthand for -force")
 		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() > 1 {
-			fmt.Fprintln(os.Stderr, "usage: agentmux remove [-f] [name]")
+			fmt.Fprintln(os.Stderr, "usage: jumux remove [-f] [name]")
 			os.Exit(2)
 		}
 		err = a.Remove(fs.Arg(0), *force)
@@ -64,24 +64,24 @@ func main() {
 			// Internal mode: runs the TUI inside a spawned sidebar pane.
 			err = a.SidebarRun()
 		default:
-			fmt.Fprintln(os.Stderr, "usage: agentmux sidebar")
+			fmt.Fprintln(os.Stderr, "usage: jumux sidebar")
 			os.Exit(2)
 		}
 	case "hook":
 		if len(os.Args) != 3 {
-			fmt.Fprintln(os.Stderr, "usage: agentmux hook <working|waiting|done>")
+			fmt.Fprintln(os.Stderr, "usage: jumux hook <working|waiting|done>")
 			os.Exit(2)
 		}
 		err = a.Hook(os.Args[2])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
-		fmt.Fprintf(os.Stderr, "agentmux: unknown command %q\n\n%s", os.Args[1], usage)
+		fmt.Fprintf(os.Stderr, "jumux: unknown command %q\n\n%s", os.Args[1], usage)
 		os.Exit(2)
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "agentmux: %v\n", err)
+		fmt.Fprintf(os.Stderr, "jumux: %v\n", err)
 		os.Exit(1)
 	}
 }

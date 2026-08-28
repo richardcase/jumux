@@ -4,17 +4,17 @@ Guidance for coding agents working in this repository.
 
 ## Project overview
 
-agentmux is a Go CLI for working on multiple features in parallel with coding
+jumux is a Go CLI for working on multiple features in parallel with coding
 agents. It pairs a [jujutsu (jj)](https://github.com/jj-vcs/jj) workspace with
 a tmux window per feature. It must be run inside tmux, in a jj repo.
 
-- Module: `github.com/richardcase/agentmux`
+- Module: `github.com/richardcase/jumux`
 - Commands: `add <feature>`, `remove [-f] [name]`, `list`, `sidebar`,
   `hook <status>` (dispatched in `main.go`; `sidebar run` is the internal
   per-pane TUI mode; `hook` is called from Claude Code hooks to record agent
   liveness)
-- Configuration: global `~/.config/agentmux/config.toml`, overridden per-repo
-  by `.agentmux.toml` at the repo root (TOML)
+- Configuration: global `~/.config/jumux/config.toml`, overridden per-repo
+  by `.jumux.toml` at the repo root (TOML)
 
 ## Layout
 
@@ -32,7 +32,7 @@ a tmux window per feature. It must be run inside tmux, in a jj repo.
 
 Use the Makefile targets:
 
-- `make build` — build the binary to `bin/agentmux`
+- `make build` — build the binary to `bin/jumux`
 - `make test` — run all tests (`go test ./...`)
 - `make lint` — run `golangci-lint run`
 - `make fmt` — format code (`gofmt -l -w .`)

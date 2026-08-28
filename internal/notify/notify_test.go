@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 func TestSend(t *testing.T) {
@@ -18,13 +18,13 @@ func TestSend(t *testing.T) {
 			name:     "darwin uses osascript",
 			goos:     "darwin",
 			wantCmd:  "osascript",
-			wantArgs: []string{"-e", `display notification "hi there" with title "agentmux: auth"`},
+			wantArgs: []string{"-e", `display notification "hi there" with title "jumux: auth"`},
 		},
 		{
 			name:     "linux uses notify-send",
 			goos:     "linux",
 			wantCmd:  "notify-send",
-			wantArgs: []string{"agentmux: auth", "hi there"},
+			wantArgs: []string{"jumux: auth", "hi there"},
 		},
 		{
 			name: "other platforms are a no-op",
@@ -34,7 +34,7 @@ func TestSend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fr := &run.FakeRunner{}
-			err := send(fr, tt.goos, "agentmux: auth", "hi there")
+			err := send(fr, tt.goos, "jumux: auth", "hi there")
 			if err != nil {
 				t.Fatalf("send() error = %v", err)
 			}

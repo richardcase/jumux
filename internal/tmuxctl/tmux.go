@@ -1,23 +1,23 @@
-// Package tmuxctl wraps the tmux CLI operations agentmux needs.
+// Package tmuxctl wraps the tmux CLI operations jumux needs.
 // Windows are targeted by ID (@N) since names are not unique; the custom
-// window option @agentmux-feature maps windows to features across renames.
+// window option @jumux-feature maps windows to features across renames.
 package tmuxctl
 
 import (
 	"strings"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 // FeatureOption is the tmux window option that records which feature a
 // window belongs to.
-const FeatureOption = "@agentmux-feature"
+const FeatureOption = "@jumux-feature"
 
 // Window is one row from list-windows.
 type Window struct {
 	ID      string
 	Name    string
-	Feature string // value of @agentmux-feature, "" if unset
+	Feature string // value of @jumux-feature, "" if unset
 }
 
 // NewWindow creates a detached window and returns its window ID.
@@ -88,7 +88,7 @@ func ListWindows(r run.Runner) ([]Window, error) {
 }
 
 // FindWindow locates the window for a feature: first by the
-// @agentmux-feature option, then by exact window name.
+// @jumux-feature option, then by exact window name.
 func FindWindow(windows []Window, feature, windowName string) (Window, bool) {
 	for _, w := range windows {
 		if w.Feature == feature {
@@ -103,7 +103,7 @@ func FindWindow(windows []Window, feature, windowName string) (Window, bool) {
 	return Window{}, false
 }
 
-// CurrentWindowFeature returns the @agentmux-feature option of the client's
+// CurrentWindowFeature returns the @jumux-feature option of the client's
 // current window ("" if unset).
 func CurrentWindowFeature(r run.Runner) (string, error) {
 	return r.Run("", "tmux", "display-message", "-p", "#{"+FeatureOption+"}")

@@ -3,7 +3,7 @@ package tmuxctl
 import (
 	"testing"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 func TestListAndFindWindow(t *testing.T) {

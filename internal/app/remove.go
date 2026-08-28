@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/richardcase/agentmux/internal/agentstate"
-	"github.com/richardcase/agentmux/internal/jj"
-	"github.com/richardcase/agentmux/internal/tmuxctl"
+	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
 // Remove tears down a feature: forgets the jj workspace, deletes its
@@ -100,7 +100,7 @@ func (a *App) Remove(name string, force bool) error {
 
 // inferFeature determines the current feature: if cwd is inside a
 // non-default workspace whose name matches the sibling-dir convention, use
-// it; otherwise fall back to the current window's @agentmux-feature tag.
+// it; otherwise fall back to the current window's @jumux-feature tag.
 func (a *App) inferFeature(ctx *repoContext, names []string) (string, error) {
 	if ctx.WsRoot != ctx.MainRoot {
 		base := filepath.Base(ctx.WsRoot)

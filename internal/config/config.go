@@ -1,5 +1,5 @@
-// Package config loads agentmux settings from a global TOML file and a
-// per-repo .agentmux.toml, with per-key repo-over-global precedence.
+// Package config loads jumux settings from a global TOML file and a
+// per-repo .jumux.toml, with per-key repo-over-global precedence.
 package config
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const RepoFileName = ".agentmux.toml"
+const RepoFileName = ".jumux.toml"
 
 type Config struct {
 	Agent          string `toml:"agent"`
@@ -34,16 +34,16 @@ func defaults() Config {
 }
 
 // GlobalPath returns the default global config location
-// (~/.config/agentmux/config.toml on Linux).
+// (~/.config/jumux/config.toml on Linux).
 func GlobalPath() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "agentmux", "config.toml")
+	return filepath.Join(dir, "jumux", "config.toml")
 }
 
-// Load merges defaults <- globalPath <- <repoRoot>/.agentmux.toml.
+// Load merges defaults <- globalPath <- <repoRoot>/.jumux.toml.
 // Missing files are ignored; malformed TOML is an error naming the file.
 // Decoding successive files into the same struct leaves absent keys
 // untouched, giving per-key override semantics.

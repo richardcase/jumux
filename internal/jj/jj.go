@@ -1,4 +1,4 @@
-// Package jj wraps the jujutsu CLI operations agentmux needs.
+// Package jj wraps the jujutsu CLI operations jumux needs.
 package jj
 
 import (
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/richardcase/agentmux/internal/run"
+	"github.com/richardcase/jumux/internal/run"
 )
 
 // Root returns the root of the workspace containing dir.
