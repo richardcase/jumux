@@ -1,6 +1,7 @@
 package jj
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -53,6 +54,41 @@ func TestMainRoot(t *testing.T) {
 	got, err = MainRoot(ws)
 	if err != nil || got != mainRoot {
 		t.Errorf("secondary workspace (relative pointer): got %q, %v", got, err)
+	}
+}
+
+func TestInstalled(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "jj 0.20.0", nil
+	}}
+	if err := Installed(fr); err != nil {
+		t.Errorf("got %v, want nil", err)
+	}
+
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("exec: \"jj\": executable file not found in $PATH")
+	}}
+	if err := Installed(frErr); err == nil {
+		t.Error("got nil error, want non-nil when jj is not installed")
+	}
+}
+
+func TestResolveRevision(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", nil
+	}}
+	if err := ResolveRevision(fr, "/repo", "trunk()"); err != nil {
+		t.Errorf("got %v, want nil", err)
+	}
+	if got := fr.Calls[0].Dir; got != "/repo" {
+		t.Errorf("resolve must run in the given dir, ran in %q", got)
+	}
+
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("revset \"nope\" doesn't resolve to any revisions")
+	}}
+	if err := ResolveRevision(frErr, "/repo", "nope"); err == nil {
+		t.Error("got nil error, want non-nil for an unresolvable revset")
 	}
 }
 

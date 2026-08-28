@@ -1,10 +1,27 @@
 package tmuxctl
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/richardcase/jumux/internal/run"
 )
+
+func TestServerRunning(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "main: 1 windows", nil
+	}}
+	if err := ServerRunning(fr); err != nil {
+		t.Errorf("got %v, want nil", err)
+	}
+
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("no server running on /tmp/tmux-501/default")
+	}}
+	if err := ServerRunning(frErr); err == nil {
+		t.Error("got nil error, want non-nil when the tmux server isn't running")
+	}
+}
 
 func TestListAndFindWindow(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {

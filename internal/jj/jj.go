@@ -40,6 +40,19 @@ func MainRoot(workspaceRoot string) (string, error) {
 	return filepath.Clean(filepath.Dir(filepath.Dir(storePath))), nil
 }
 
+// Installed reports whether the jj binary is available and runnable.
+func Installed(r run.Runner) error {
+	_, err := r.Run("", "jj", "--version")
+	return err
+}
+
+// ResolveRevision reports whether rev resolves to a revision in dir. Unlike
+// WorkspaceAdd it is non-mutating, so it is safe to use as a pure check.
+func ResolveRevision(r run.Runner, dir, rev string) error {
+	_, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", `""`)
+	return err
+}
+
 // IsColocated reports whether root has both .jj and .git.
 func IsColocated(root string) bool {
 	if _, err := os.Stat(filepath.Join(root, ".jj")); err != nil {
