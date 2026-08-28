@@ -12,14 +12,18 @@ import (
 
 func testItems() []Item {
 	return []Item{
-		{Label: "myrepo/auth", Status: "dirty", Agent: "working", SessionID: "$0", WindowID: "@2"},
-		{Label: "myrepo/billing", Status: "clean", Agent: "done", SessionID: "$0", WindowID: "@3"},
-		{Label: "other/fix", Status: "unknown", SessionID: "$1", WindowID: "@7", Activity: true},
+		{Label: "myrepo/auth", Feature: "auth", Status: "dirty", Agent: "working", SessionID: "$0", WindowID: "@2"},
+		{Label: "myrepo/billing", Feature: "billing", Status: "clean", Agent: "done", SessionID: "$0", WindowID: "@3"},
+		{Label: "other/fix", Feature: "fix", Status: "unknown", SessionID: "$1", WindowID: "@7", Activity: true},
 	}
 }
 
 func newTestModel(items []Item, jump Jump) Model {
-	m := NewModel(func() ([]Item, error) { return items, nil }, jump, time.Second)
+	return newTestModelWithRemove(items, jump, nil)
+}
+
+func newTestModelWithRemove(items []Item, jump Jump, remove Remove) Model {
+	m := NewModel(func() ([]Item, error) { return items, nil }, jump, remove, time.Second)
 	m.items = items
 	return m
 }
@@ -136,6 +140,73 @@ func TestEnterOnEmptyListDoesNothing(t *testing.T) {
 	}
 }
 
+func TestDOnEmptyListDoesNothing(t *testing.T) {
+	m := newTestModelWithRemove(nil, nil, func(string) error {
+		t.Fatal("remove must not be called")
+		return nil
+	})
+	if _, cmd := update(t, m, key("d")); cmd != nil {
+		t.Error("expected no Cmd on empty list")
+	}
+	if m.confirming {
+		t.Error("should not enter confirm state on empty list")
+	}
+}
+
+func TestDEntersConfirmState(t *testing.T) {
+	m := newTestModelWithRemove(testItems(), nil, func(string) error {
+		t.Fatal("remove must not be called before confirmation")
+		return nil
+	})
+	m, cmd := update(t, m, key("d"))
+	if cmd != nil {
+		t.Error("d should not have a side effect before confirmation")
+	}
+	if !m.confirming || m.pendingRemove == nil || m.pendingRemove.Feature != "auth" {
+		t.Errorf("expected confirm state for auth, got confirming=%v pendingRemove=%+v", m.confirming, m.pendingRemove)
+	}
+}
+
+func TestConfirmYCallsRemove(t *testing.T) {
+	var got string
+	remove := func(feature string) error {
+		got = feature
+		return nil
+	}
+	m := newTestModelWithRemove(testItems(), nil, remove)
+	m, _ = update(t, m, key("j")) // billing
+	m, _ = update(t, m, key("d"))
+	m, cmd := update(t, m, key("y"))
+	if m.confirming {
+		t.Error("confirming should be cleared after y")
+	}
+	if cmd == nil {
+		t.Fatal("y should return a Cmd")
+	}
+	if msg, ok := cmd().(removeMsg); !ok || msg.err != nil {
+		t.Fatalf("cmd result: %+v", msg)
+	}
+	if got != "billing" {
+		t.Errorf("remove called with %q, want billing", got)
+	}
+}
+
+func TestConfirmNCancelsWithoutCalling(t *testing.T) {
+	remove := func(string) error {
+		t.Fatal("remove must not be called")
+		return nil
+	}
+	m := newTestModelWithRemove(testItems(), nil, remove)
+	m, _ = update(t, m, key("d"))
+	m, cmd := update(t, m, key("n"))
+	if cmd != nil {
+		t.Error("n should not return a Cmd")
+	}
+	if m.confirming || m.pendingRemove != nil {
+		t.Errorf("confirm state should be cleared: confirming=%v pendingRemove=%+v", m.confirming, m.pendingRemove)
+	}
+}
+
 func TestQuit(t *testing.T) {
 	for _, k := range []string{"q", "ctrl+c"} {
 		m := newTestModel(testItems(), nil)
@@ -158,7 +229,7 @@ func TestViewContents(t *testing.T) {
 	out := m.View()
 	// Icons: spinner (auth working), ✓ (billing done + clean), ● (auth
 	// dirty), ? (fix unknown), · (fix agent unknown).
-	for _, want := range []string{"jumux", "myrepo/auth", "other/fix", "q quit",
+	for _, want := range []string{"jumux", "myrepo/auth", "other/fix", "q quit", "d remove",
 		spinnerFrames[0], "✓", "●", "?", "·"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q:\n%s", want, out)
@@ -174,6 +245,15 @@ func TestViewContents(t *testing.T) {
 		if w := len([]rune(stripANSI(line))); w > 40 {
 			t.Errorf("line wider than 40 (%d): %q", w, line)
 		}
+	}
+}
+
+func TestViewConfirmingShowsPrompt(t *testing.T) {
+	m := newTestModel(testItems(), nil)
+	m, _ = update(t, m, key("d"))
+	out := m.View()
+	if !strings.Contains(out, "remove 'myrepo/auth'? y/n") {
+		t.Errorf("view missing confirm prompt:\n%s", out)
 	}
 }
 

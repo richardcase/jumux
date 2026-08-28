@@ -13,6 +13,7 @@ import (
 // Item is one row in the sidebar.
 type Item struct {
 	Label     string // "repo/feature"
+	Feature   string // raw feature name, used to remove
 	Status    string // "clean" | "dirty" | "unknown"
 	Agent     string // "working" | "waiting" | "done" | "" (unknown)
 	Activity  bool
@@ -27,6 +28,9 @@ type Fetch func() ([]Item, error)
 // Jump switches the tmux client to an item's window.
 type Jump func(sessionID, windowID string) error
 
+// Remove tears down an item's feature.
+type Remove func(feature string) error
+
 // ErrSkip tells the model a refresh was intentionally skipped.
 var ErrSkip = errors.New("refresh skipped")
 
@@ -34,16 +38,22 @@ var ErrSkip = errors.New("refresh skipped")
 type Model struct {
 	fetch    Fetch
 	jump     Jump
+	remove   Remove
 	interval time.Duration
 
 	items  []Item
 	cursor int
 	width  int
 	height int
-	err    error // last fetch/jump error, shown in the footer
+	err    error // last fetch/jump/remove error, shown in the footer
 
 	frame    int  // current spinner frame for "working" rows
 	spinning bool // a spinner tick is already scheduled
+
+	// confirming and pendingRemove hold the pending "remove this feature?"
+	// prompt while it awaits a y/n answer.
+	confirming    bool
+	pendingRemove *Item
 
 	// Quitting is set when the user asked to close the sidebar; the caller
 	// tears down all sidebar panes.
@@ -51,8 +61,8 @@ type Model struct {
 }
 
 // NewModel returns a sidebar model refreshing via fetch every interval.
-func NewModel(fetch Fetch, jump Jump, interval time.Duration) Model {
-	return Model{fetch: fetch, jump: jump, interval: interval, width: 32, height: 24}
+func NewModel(fetch Fetch, jump Jump, remove Remove, interval time.Duration) Model {
+	return Model{fetch: fetch, jump: jump, remove: remove, interval: interval, width: 32, height: 24}
 }
 
 type tickMsg struct{}
@@ -82,6 +92,8 @@ type dataMsg struct {
 }
 
 type jumpMsg struct{ err error }
+
+type removeMsg struct{ err error }
 
 func fetchCmd(fetch Fetch) tea.Cmd {
 	return func() tea.Msg {
@@ -125,6 +137,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case jumpMsg:
 		m.err = msg.err
 		return m, nil
+	case removeMsg:
+		m.err = msg.err
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -136,6 +151,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.confirming {
+		return m.handleConfirmKey(msg)
+	}
 	switch msg.String() {
 	case "j", "down":
 		if m.cursor < len(m.items)-1 {
@@ -159,11 +177,33 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return jumpMsg{err: jump(item.SessionID, item.WindowID)}
 			}
 		}
+	case "d":
+		if m.cursor < len(m.items) {
+			item := m.items[m.cursor]
+			m.confirming = true
+			m.pendingRemove = &item
+		}
 	case "q", "ctrl+c":
 		m.Quitting = true
 		return m, tea.Quit
 	}
 	return m, nil
+}
+
+// handleConfirmKey handles a key press while a "remove this feature?" prompt
+// is pending: "y" confirms, anything else cancels.
+func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	item := m.pendingRemove
+	m.confirming = false
+	m.pendingRemove = nil
+	if msg.String() != "y" {
+		return m, nil
+	}
+	remove := m.remove
+	feature := item.Feature
+	return m, func() tea.Msg {
+		return removeMsg{err: remove(feature)}
+	}
 }
 
 // setItems replaces the rows, keeping the cursor on the same label when

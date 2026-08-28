@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/richardcase/jumux/internal/agentstate"
@@ -101,6 +102,7 @@ func (a *App) SidebarRun() error {
 			}
 			items = append(items, sidebar.Item{
 				Label:     label,
+				Feature:   row.Feature,
 				Status:    row.Status,
 				Agent:     row.AgentStatus,
 				Activity:  row.Activity,
@@ -113,8 +115,17 @@ func (a *App) SidebarRun() error {
 	jump := func(sessionID, windowID string) error {
 		return tmuxctl.SwitchToWindow(a.Runner, sessionID, windowID)
 	}
+	remove := func(feature string) error {
+		// The sidebar's own y/n prompt replaces the CLI confirmation, and its
+		// output would corrupt the alt-screen, so this runs quietly and
+		// force=true.
+		quiet := *a
+		quiet.Out = io.Discard
+		quiet.Errw = io.Discard
+		return quiet.Remove(feature, true)
+	}
 
-	final, err := runProgram(sidebar.NewModel(fetch, jump, cfg.SidebarRefreshInterval()))
+	final, err := runProgram(sidebar.NewModel(fetch, jump, remove, cfg.SidebarRefreshInterval()))
 	if err != nil {
 		return err
 	}
