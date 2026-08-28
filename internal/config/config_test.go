@@ -22,6 +22,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Agent != "claude" || cfg.BaseRevision != "trunk()" || !cfg.SelectWindowEnabled() {
 		t.Errorf("unexpected defaults: %+v", cfg)
 	}
+	if !cfg.NotifyEnabled() {
+		t.Error("notify should default to enabled")
+	}
 	if cfg.SidebarWidthCols() != 32 || cfg.SidebarRefreshInterval() != 2*time.Second {
 		t.Errorf("unexpected sidebar defaults: %+v", cfg)
 	}
@@ -63,7 +66,7 @@ func TestSidebarAccessorClamping(t *testing.T) {
 func TestLoadRepoOverridesGlobalPerKey(t *testing.T) {
 	dir := t.TempDir()
 	global := filepath.Join(dir, "global.toml")
-	write(t, global, "agent = \"aider\"\nwindow_prefix = \"g-\"\nselect_window = false\n")
+	write(t, global, "agent = \"aider\"\nwindow_prefix = \"g-\"\nselect_window = false\nnotify = false\n")
 	repoRoot := filepath.Join(dir, "repo")
 	if err := os.Mkdir(repoRoot, 0o755); err != nil {
 		t.Fatal(err)
@@ -82,6 +85,9 @@ func TestLoadRepoOverridesGlobalPerKey(t *testing.T) {
 	}
 	if cfg.SelectWindowEnabled() {
 		t.Error("global select_window=false should survive")
+	}
+	if cfg.NotifyEnabled() {
+		t.Error("global notify=false should survive")
 	}
 	if cfg.BaseRevision != "trunk()" {
 		t.Errorf("unset base_revision should keep default, got %q", cfg.BaseRevision)

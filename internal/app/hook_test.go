@@ -2,6 +2,9 @@ package app
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +87,104 @@ func TestHook(t *testing.T) {
 				if !strings.Contains(fr.CommandLines(), wantCmd) {
 					t.Errorf("expected command containing %q; ran:\n%s", wantCmd, fr.CommandLines())
 				}
+			}
+		})
+	}
+}
+
+// newNotifyApp wires an App whose repoContext() resolves successfully
+// against a throwaway jj workspace, so maybeNotify can load config.
+func newNotifyApp(t *testing.T, notifyToml string) (*App, *run.FakeRunner) {
+	t.Helper()
+	wsRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(wsRoot, ".jj", "repo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	global := filepath.Join(t.TempDir(), "config.toml")
+	if notifyToml != "" {
+		if err := os.WriteFile(global, []byte(notifyToml), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		if name == "jj" {
+			return wsRoot, nil
+		}
+		return "@5\tauth", nil // tmux display-message
+	}}
+	a := &App{
+		Runner:       fr,
+		Errw:         &bytes.Buffer{},
+		StateDir:     t.TempDir(),
+		GlobalConfig: global,
+		Now:          func() time.Time { return time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC) },
+		Getwd:        func() (string, error) { return wsRoot, nil },
+		Getenv:       func(k string) string { return map[string]string{"TMUX_PANE": "%3"}[k] },
+	}
+	return a, fr
+}
+
+func TestHookNotify(t *testing.T) {
+	notifierSupported := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
+
+	tests := []struct {
+		name             string
+		notifyToml       string
+		seedStatus       agentstate.Status // pre-existing status for the window, if any
+		status           string
+		wantConfigLoaded bool // maybeNotify reaches repoContext (jj root runs)
+		wantNotify       bool
+	}{
+		{
+			name:             "notifies on transition to waiting",
+			status:           "waiting",
+			wantConfigLoaded: true,
+			wantNotify:       true,
+		},
+		{
+			name:             "notifies on transition to done",
+			status:           "done",
+			wantConfigLoaded: true,
+			wantNotify:       true,
+		},
+		{
+			name:   "does not notify for working",
+			status: "working",
+		},
+		{
+			name:       "does not notify when status is unchanged",
+			seedStatus: agentstate.Waiting,
+			status:     "waiting",
+		},
+		{
+			name:             "does not notify when config disables it",
+			notifyToml:       "notify = false\n",
+			status:           "waiting",
+			wantConfigLoaded: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, fr := newNotifyApp(t, tt.notifyToml)
+			if tt.seedStatus != "" {
+				if err := agentstate.Write(a.StateDir, agentstate.Entry{
+					WindowID: "@5", PaneID: "%3", Status: tt.seedStatus, UpdatedAt: a.now(),
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := a.Hook(tt.status); err != nil {
+				t.Fatalf("Hook(%q) error = %v", tt.status, err)
+			}
+			want := 1 // tmux display-message
+			if tt.wantConfigLoaded {
+				want++ // jj root
+			}
+			if tt.wantNotify && notifierSupported {
+				want++ // osascript / notify-send
+			}
+			if len(fr.Calls) != want {
+				t.Errorf("commands run = %d, want %d; ran:\n%s", len(fr.Calls), want, fr.CommandLines())
 			}
 		})
 	}
