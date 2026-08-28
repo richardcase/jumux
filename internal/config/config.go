@@ -21,6 +21,7 @@ type Config struct {
 	WindowPrefix   string `toml:"window_prefix"`
 	SidebarWidth   int    `toml:"sidebar_width"`
 	SidebarRefresh int    `toml:"sidebar_refresh"`
+	Notify         *bool  `toml:"notify"`
 }
 
 func defaults() Config {
@@ -76,6 +77,12 @@ func (c Config) AgentCommand(feature string) string {
 // (default true).
 func (c Config) SelectWindowEnabled() bool {
 	return c.SelectWindow == nil || *c.SelectWindow
+}
+
+// NotifyEnabled reports whether hook status changes should send an OS
+// desktop notification (default true).
+func (c Config) NotifyEnabled() bool {
+	return c.Notify == nil || *c.Notify
 }
 
 // SidebarWidthCols returns the sidebar pane width in columns (default 32).
