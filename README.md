@@ -118,8 +118,11 @@ agent = "claude 'Work on the {feature} feature'"
 ```
 
 Note on `base_revision`: jj's builtin `trunk()` resolves via *remote*
-bookmarks (`main@origin` etc.) and falls back to `root()` in a repo with no
-remote — set `base_revision = "main"` (or similar) for local-only repos.
+bookmarks (`main@origin` etc.), which can fail to resolve in a local-only
+repo with no remote. If the default `base_revision` fails and you haven't
+overridden it, `jumux add` automatically retries with `@-` and prints a
+warning; set `base_revision = "main"` (or similar) explicitly to avoid the
+fallback and its warning.
 
 Note on colocation: depending on your jj version, secondary workspaces may
 not contain a `.git` directory even when the main repo is colocated, so

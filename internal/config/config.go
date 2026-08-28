@@ -14,6 +14,11 @@ import (
 
 const RepoFileName = ".jumux.toml"
 
+// DefaultBaseRevision is the built-in base_revision value. jj's trunk()
+// revset alias resolves via remote bookmarks, so it can fail to resolve in
+// local-only repos with no remote configured.
+const DefaultBaseRevision = "trunk()"
+
 type Config struct {
 	Agent          string `toml:"agent"`
 	SelectWindow   *bool  `toml:"select_window"`
@@ -27,7 +32,7 @@ type Config struct {
 func defaults() Config {
 	return Config{
 		Agent:          "claude",
-		BaseRevision:   "trunk()",
+		BaseRevision:   DefaultBaseRevision,
 		SidebarWidth:   32,
 		SidebarRefresh: 2,
 	}

@@ -153,6 +153,32 @@ func TestAddAgentOverrideBeatsRepoConfig(t *testing.T) {
 	f.assertNotRan(t, "-l claude")
 }
 
+func TestAddFallsBackToParentWhenTrunkFails(t *testing.T) {
+	f := newFixture(t)
+	f.failOn = "jj workspace add --name billing -r trunk()"
+	if err := f.app.Add("billing", ""); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj workspace add --name billing -r @- "+f.wsPath("billing"))
+	if !strings.Contains(f.err.String(), "warning:") {
+		t.Errorf("expected a warning about the fallback, got: %s", f.err.String())
+	}
+}
+
+func TestAddDoesNotFallBackWithExplicitBaseRevision(t *testing.T) {
+	f := newFixture(t)
+	cfg := "base_revision = \"main\"\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.failOn = "jj workspace add --name billing -r main"
+	err := f.app.Add("billing", "")
+	if err == nil || !strings.Contains(err.Error(), "scripted failure") {
+		t.Fatalf("expected the original error, got %v", err)
+	}
+	f.assertNotRan(t, "-r @-")
+}
+
 func TestAddRejectsExistingWorkspace(t *testing.T) {
 	f := newFixture(t)
 	err := f.app.Add("auth", "")
