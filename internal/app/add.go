@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/richardcase/jumux/internal/config"
 	"github.com/richardcase/jumux/internal/jj"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
+
+// fallbackBaseRevision is used when the default base_revision ("trunk()")
+// fails to resolve, e.g. in a local-only jj repo with no remote bookmark.
+const fallbackBaseRevision = "@-"
 
 // Add creates a jj workspace for feature, opens a tmux window in it, and
 // starts the configured agent. If agentOverride is non-empty it replaces
@@ -50,7 +55,14 @@ func (a *App) Add(feature, agentOverride string) error {
 	}
 
 	if err := jj.WorkspaceAdd(a.Runner, ctx.MainRoot, feature, wsPath, ctx.Config.BaseRevision); err != nil {
-		return err
+		if ctx.Config.BaseRevision != config.DefaultBaseRevision {
+			return err
+		}
+		if fbErr := jj.WorkspaceAdd(a.Runner, ctx.MainRoot, feature, wsPath, fallbackBaseRevision); fbErr != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.Errw, "warning: base_revision %q did not resolve (likely no remote bookmark); fell back to %q. Set base_revision explicitly in .jumux.toml to avoid this.\n",
+			config.DefaultBaseRevision, fallbackBaseRevision)
 	}
 	rollbackWorkspace := func() {
 		if ferr := jj.WorkspaceForget(a.Runner, ctx.MainRoot, feature); ferr != nil {
