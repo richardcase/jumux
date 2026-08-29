@@ -3,6 +3,7 @@ package app
 import (
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/jj"
@@ -22,6 +23,7 @@ type FeatureStatus struct {
 	WindowID    string
 	Activity    bool
 	PaneDead    bool // the window's tmux pane has died (agent process exited)
+	Stale       bool // idle beyond the configured stale threshold
 }
 
 // featureStatuses builds rows from every window (any session) carrying the
@@ -30,8 +32,11 @@ type FeatureStatus struct {
 // Rows whose path cannot be resolved get status "unknown" rather than being
 // dropped.
 // agent maps window IDs to hook-reported agent statuses (nil when no agent
-// state is available).
-func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[string]agentstate.Status) []FeatureStatus {
+// state is available). hookUpdates maps window IDs to their last hook
+// update time (nil to skip hook-based activity). now and staleAfter drive
+// staleness: a row is Stale when its last jj change and last hook update
+// are both older than staleAfter (or unknown); staleAfter <= 0 disables it.
+func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[string]agentstate.Status, hookUpdates map[string]time.Time, now time.Time, staleAfter time.Duration) []FeatureStatus {
 	mainRoots := map[string]string{} // path -> main root ("" on failure)
 	var rows []FeatureStatus
 	for _, w := range windows {
@@ -64,6 +69,19 @@ func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[str
 					row.Status = "clean"
 				}
 			}
+		}
+		if staleAfter > 0 {
+			var latest time.Time
+			found := false
+			if t, err := jj.LastChangeTime(r, w.Path, w.Feature); err == nil {
+				latest = t
+				found = true
+			}
+			if t, ok := hookUpdates[w.ID]; ok && (!found || t.After(latest)) {
+				latest = t
+				found = true
+			}
+			row.Stale = found && now.Sub(latest) > staleAfter
 		}
 		rows = append(rows, row)
 	}

@@ -92,8 +92,14 @@ func (a *App) SidebarRun() error {
 			}
 		}
 		_ = agentstate.Prune(a.StateDir, live)
-		agent := agentstate.ReadAll(a.StateDir, a.now())
-		rows := featureStatuses(a.Runner, windows, agent)
+		now := a.now()
+		agent := agentstate.ReadAll(a.StateDir, now)
+		hookUpdates := agentstate.LastUpdated(a.StateDir)
+		staleAfter, staleEnabled := cfg.StaleThreshold()
+		if !staleEnabled {
+			staleAfter = 0
+		}
+		rows := featureStatuses(a.Runner, windows, agent, hookUpdates, now, staleAfter)
 		items := make([]sidebar.Item, 0, len(rows))
 		for _, row := range rows {
 			label := row.Feature
@@ -106,6 +112,7 @@ func (a *App) SidebarRun() error {
 				Status:    row.Status,
 				Agent:     row.AgentStatus,
 				Activity:  row.Activity,
+				Stale:     row.Stale,
 				SessionID: row.SessionID,
 				WindowID:  row.WindowID,
 				PaneDead:  row.PaneDead,

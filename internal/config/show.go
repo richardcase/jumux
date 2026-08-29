@@ -84,6 +84,7 @@ func Show(globalPath, repoRoot string) (Config, []Field, error) {
 		{"sidebar_width", strconv.Itoa(cfg.SidebarWidthCols()), source("sidebar_width")},
 		{"sidebar_refresh", cfg.SidebarRefreshInterval().String(), source("sidebar_refresh")},
 		{"notify", strconv.FormatBool(cfg.NotifyEnabled()), source("notify")},
+		{"stale_after_hours", strconv.Itoa(cfg.StaleAfterHours), source("stale_after_hours")},
 	}
 	return cfg, fields, nil
 }

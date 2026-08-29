@@ -2,15 +2,19 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/run"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
+
+var statusNow = time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
 
 // statusFixture builds a main repo plus workspace dirs whose .jj/repo
 // pointer files resolve back to it, so jj.MainRoot works on real FS.
@@ -60,7 +64,7 @@ func TestFeatureStatuses(t *testing.T) {
 		{SessionID: "$1", SessionName: "work", ID: "@5", Feature: "lost", Path: "/gone"},
 	}
 	agent := map[string]agentstate.Status{"@2": agentstate.Working, "@9": agentstate.Done}
-	rows := featureStatuses(fr, windows, agent)
+	rows := featureStatuses(fr, windows, agent, nil, statusNow, 0)
 	if len(rows) != 3 {
 		t.Fatalf("untagged window should be skipped; got %d rows: %+v", len(rows), rows)
 	}
@@ -81,6 +85,63 @@ func TestFeatureStatuses(t *testing.T) {
 	}
 }
 
+func TestFeatureStatusesStale(t *testing.T) {
+	_, ws := statusFixture(t, "auth", "billing", "fresh")
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		switch {
+		case strings.HasPrefix(cmd, "jj root"):
+			return dir, nil
+		case strings.Contains(cmd, "committer.timestamp"):
+			switch {
+			case strings.Contains(cmd, "auth@"):
+				// 10 days old: stale on jj activity alone.
+				return fmt.Sprintf("%d", statusNow.Add(-240*time.Hour).Unix()), nil
+			case strings.Contains(cmd, "fresh@"):
+				return fmt.Sprintf("%d", statusNow.Add(-time.Hour).Unix()), nil
+			}
+			return "", errors.New("no timestamp")
+		case strings.HasPrefix(cmd, "jj log"):
+			return "clean", nil
+		}
+		return "", nil
+	}}
+	windows := []tmuxctl.GlobalWindow{
+		{SessionName: "a", ID: "@1", Feature: "auth", Path: ws["auth"]},
+		{SessionName: "a", ID: "@2", Feature: "billing", Path: ws["billing"]},
+		{SessionName: "a", ID: "@3", Feature: "fresh", Path: ws["fresh"]},
+	}
+	// billing's jj timestamp is unavailable, but a recent hook update keeps
+	// it fresh.
+	hookUpdates := map[string]time.Time{"@2": statusNow.Add(-time.Minute)}
+	rows := featureStatuses(fr, windows, nil, hookUpdates, statusNow, 168*time.Hour)
+	byFeature := map[string]FeatureStatus{}
+	for _, r := range rows {
+		byFeature[r.Feature] = r
+	}
+	if !byFeature["auth"].Stale {
+		t.Error("auth should be stale (10d old jj activity, no hook update)")
+	}
+	if byFeature["billing"].Stale {
+		t.Error("billing should not be stale (recent hook update)")
+	}
+	if byFeature["fresh"].Stale {
+		t.Error("fresh should not be stale (1h old jj activity)")
+	}
+}
+
+func TestFeatureStatusesStaleDisabled(t *testing.T) {
+	_, ws := statusFixture(t, "auth")
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "clean", nil
+	}}
+	windows := []tmuxctl.GlobalWindow{{SessionName: "a", ID: "@1", Feature: "auth", Path: ws["auth"]}}
+	rows := featureStatuses(fr, windows, nil, nil, statusNow, 0)
+	if rows[0].Stale {
+		t.Error("staleAfter <= 0 should disable stale detection")
+	}
+}
+
 func TestFeatureStatusesCachesRootPerPath(t *testing.T) {
 	_, ws := statusFixture(t, "auth")
 	rootCalls := 0
@@ -95,7 +156,7 @@ func TestFeatureStatusesCachesRootPerPath(t *testing.T) {
 		{SessionName: "a", ID: "@1", Feature: "auth", Path: ws["auth"]},
 		{SessionName: "a", ID: "@2", Feature: "auth", Path: ws["auth"]},
 	}
-	if rows := featureStatuses(fr, windows, nil); len(rows) != 2 {
+	if rows := featureStatuses(fr, windows, nil, nil, statusNow, 0); len(rows) != 2 {
 		t.Fatalf("got %d rows", len(rows))
 	}
 	if rootCalls != 1 {

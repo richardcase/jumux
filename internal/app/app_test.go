@@ -3,10 +3,12 @@ package app
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/richardcase/jumux/internal/run"
 )
@@ -423,5 +425,56 @@ func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 	}
 	if strings.Contains(out, "default") {
 		t.Errorf("default workspace must be hidden: %s", out)
+	}
+}
+
+func TestListSurfacesIdleFeatures(t *testing.T) {
+	f := newFixture(t)
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(f.wsPath("fresh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\tauth\tauth\n@3\tfresh\tfresh"
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nfresh: ff 33"
+	now := time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
+	f.app.Now = func() time.Time { return now }
+	f.runner.Handler = func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		switch {
+		case strings.Contains(cmd, "committer.timestamp"):
+			switch {
+			case strings.Contains(cmd, "auth@"):
+				return fmt.Sprintf("%d", now.Add(-240*time.Hour).Unix()), nil // 10d old
+			case strings.Contains(cmd, "fresh@"):
+				return fmt.Sprintf("%d", now.Add(-time.Hour).Unix()), nil
+			}
+			return "", errors.New("no timestamp")
+		default:
+			for prefix, resp := range f.responses {
+				if strings.HasPrefix(cmd, prefix) {
+					return resp, nil
+				}
+			}
+			return "", nil
+		}
+	}
+	if err := f.app.List(); err != nil {
+		t.Fatal(err)
+	}
+	out := f.out.String()
+	lines := map[string]string{}
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			lines[fields[0]] = line
+		}
+	}
+	if !strings.Contains(lines["auth"], "(idle)") {
+		t.Errorf("auth row should be marked idle: %q", lines["auth"])
+	}
+	if strings.Contains(lines["fresh"], "(idle)") {
+		t.Errorf("fresh row should not be marked idle: %q", lines["fresh"])
 	}
 }

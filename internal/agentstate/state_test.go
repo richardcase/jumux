@@ -183,6 +183,44 @@ func TestPrune(t *testing.T) {
 	}
 }
 
+func TestLastUpdated(t *testing.T) {
+	dir := t.TempDir()
+	older := now.Add(-48 * time.Hour)
+	for _, e := range []Entry{
+		{WindowID: "@1", Status: Working, UpdatedAt: now},
+		{WindowID: "@2", Status: Waiting, UpdatedAt: older},
+	} {
+		if err := Write(dir, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := LastUpdated(dir)
+	if len(got) != 2 || !got["@1"].Equal(now) || !got["@2"].Equal(older) {
+		t.Errorf("LastUpdated() = %v, want @1=%v @2=%v", got, now, older)
+	}
+}
+
+func TestLastUpdatedIncludesStaleWorking(t *testing.T) {
+	// Unlike ReadAll, LastUpdated must not drop a stale "working" entry: it
+	// is used for activity/staleness detection, not liveness.
+	dir := t.TempDir()
+	stale := now.Add(-WorkingTTL - time.Hour)
+	if err := Write(dir, Entry{WindowID: "@1", Status: Working, UpdatedAt: stale}); err != nil {
+		t.Fatal(err)
+	}
+	got := LastUpdated(dir)
+	if !got["@1"].Equal(stale) {
+		t.Errorf("LastUpdated()[@1] = %v, want %v", got["@1"], stale)
+	}
+}
+
+func TestLastUpdatedMissingDir(t *testing.T) {
+	got := LastUpdated(filepath.Join(t.TempDir(), "nope"))
+	if len(got) != 0 {
+		t.Errorf("LastUpdated(missing dir) = %v, want empty", got)
+	}
+}
+
 func TestPruneMissingDir(t *testing.T) {
 	if err := Prune(filepath.Join(t.TempDir(), "nope"), nil); err != nil {
 		t.Errorf("Prune(missing dir) = %v, want nil", err)
