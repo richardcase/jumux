@@ -32,8 +32,8 @@ func TestListAllPanes(t *testing.T) {
 
 func TestListAllWindows(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
-		return "$0\tmain\t@1\tam-auth\tauth\t/repos/myrepo-auth\t1\n" +
-			"$1\tother\t@5\tzsh\t\t/home/me\t0\n" +
+		return "$0\tmain\t@1\tam-auth\tauth\t/repos/myrepo-auth\t1\t1\n" +
+			"$1\tother\t@5\tzsh\t\t/home/me\t0\t0\n" +
 			"$1\tother\t@6", nil
 	}}
 	windows, err := ListAllWindows(fr)
@@ -45,10 +45,10 @@ func TestListAllWindows(t *testing.T) {
 	}
 	w := windows[0]
 	if w.SessionID != "$0" || w.SessionName != "main" || w.ID != "@1" ||
-		w.Name != "am-auth" || w.Feature != "auth" || w.Path != "/repos/myrepo-auth" || !w.Activity {
+		w.Name != "am-auth" || w.Feature != "auth" || w.Path != "/repos/myrepo-auth" || !w.Activity || !w.Dead {
 		t.Errorf("first window wrong: %+v", w)
 	}
-	if windows[1].Feature != "" || windows[1].Activity {
+	if windows[1].Feature != "" || windows[1].Activity || windows[1].Dead {
 		t.Errorf("second window wrong: %+v", windows[1])
 	}
 	if windows[2].ID != "@6" || windows[2].Name != "" {

@@ -26,6 +26,7 @@ type GlobalWindow struct {
 	Feature     string // value of @jumux-feature, "" if unset
 	Path        string // pane_current_path of the active pane
 	Activity    bool   // window_activity_flag
+	Dead        bool   // pane_dead of the active pane
 }
 
 // ListAllPanes returns every pane across all sessions.
@@ -57,7 +58,7 @@ func ListAllPanes(r run.Runner) ([]Pane, error) {
 func ListAllWindows(r run.Runner) ([]GlobalWindow, error) {
 	out, err := r.Run("", "tmux", "list-windows", "-a", "-F",
 		"#{session_id}\t#{session_name}\t#{window_id}\t#{window_name}\t#{"+
-			FeatureOption+"}\t#{pane_current_path}\t#{window_activity_flag}")
+			FeatureOption+"}\t#{pane_current_path}\t#{window_activity_flag}\t#{pane_dead}")
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +77,9 @@ func ListAllWindows(r run.Runner) ([]GlobalWindow, error) {
 		}
 		if len(parts) > 6 {
 			w.Activity = parts[6] == "1"
+		}
+		if len(parts) > 7 {
+			w.Dead = parts[7] == "1"
 		}
 		windows = append(windows, w)
 	}

@@ -27,7 +27,7 @@ func (a *App) List() error {
 	}
 
 	w := tabwriter.NewWriter(a.Out, 2, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tSTATUS")
+	_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tAGENT\tSTATUS")
 	count := 0
 	for _, name := range names {
 		if name == "default" {
@@ -43,10 +43,14 @@ func (a *App) List() error {
 			status = "dirty"
 		}
 		windowCol := "-"
+		agentCol := "-"
 		if win, ok := tmuxctl.FindWindow(windows, name, ctx.Config.WindowPrefix+name); ok {
 			windowCol = fmt.Sprintf("%s (%s)", win.Name, win.ID)
+			if win.Dead {
+				agentCol = "dead (jumux restart " + name + ")"
+			}
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, wsPath, windowCol, status)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", name, wsPath, windowCol, agentCol, status)
 	}
 	if count == 0 {
 		return w.Flush() // header only; keep output predictable

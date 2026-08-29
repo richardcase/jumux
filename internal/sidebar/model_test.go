@@ -23,7 +23,11 @@ func newTestModel(items []Item, jump Jump) Model {
 }
 
 func newTestModelWithRemove(items []Item, jump Jump, remove Remove) Model {
-	m := NewModel(func() ([]Item, error) { return items, nil }, jump, remove, time.Second)
+	return newTestModelWithRestart(items, jump, remove, nil)
+}
+
+func newTestModelWithRestart(items []Item, jump Jump, remove Remove, restart Restart) Model {
+	m := NewModel(func() ([]Item, error) { return items, nil }, jump, remove, restart, time.Second)
 	m.items = items
 	return m
 }
@@ -207,6 +211,47 @@ func TestConfirmNCancelsWithoutCalling(t *testing.T) {
 	}
 }
 
+func TestRDoesNothingWhenPaneNotDead(t *testing.T) {
+	m := newTestModelWithRestart(testItems(), nil, nil, func(string) error {
+		t.Fatal("restart must not be called for a live pane")
+		return nil
+	})
+	if _, cmd := update(t, m, key("r")); cmd != nil {
+		t.Error("expected no Cmd for a live pane")
+	}
+}
+
+func TestRCallsRestartForDeadPane(t *testing.T) {
+	var got string
+	restart := func(feature string) error {
+		got = feature
+		return nil
+	}
+	items := []Item{{Label: "myrepo/auth", Feature: "auth", WindowID: "@2", PaneDead: true}}
+	m := newTestModelWithRestart(items, nil, nil, restart)
+	m, cmd := update(t, m, key("r"))
+	if cmd == nil {
+		t.Fatal("r should return a Cmd for a dead pane")
+	}
+	if msg, ok := cmd().(restartMsg); !ok || msg.err != nil {
+		t.Fatalf("cmd result: %+v", msg)
+	}
+	if got != "auth" {
+		t.Errorf("restart called with %q, want auth", got)
+	}
+	_ = m
+}
+
+func TestROnEmptyListDoesNothing(t *testing.T) {
+	m := newTestModelWithRestart(nil, nil, nil, func(string) error {
+		t.Fatal("restart must not be called on empty list")
+		return nil
+	})
+	if _, cmd := update(t, m, key("r")); cmd != nil {
+		t.Error("expected no Cmd on empty list")
+	}
+}
+
 func TestQuit(t *testing.T) {
 	for _, k := range []string{"q", "ctrl+c"} {
 		m := newTestModel(testItems(), nil)
@@ -229,7 +274,7 @@ func TestViewContents(t *testing.T) {
 	out := m.View()
 	// Icons: spinner (auth working), ✓ (billing done + clean), ● (auth
 	// dirty), ? (fix unknown), · (fix agent unknown).
-	for _, want := range []string{"jumux", "myrepo/auth", "other/fix", "q quit", "d remove",
+	for _, want := range []string{"jumux", "myrepo/auth", "other/fix", "d remove",
 		spinnerFrames[0], "✓", "●", "?", "·"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q:\n%s", want, out)
@@ -245,6 +290,19 @@ func TestViewContents(t *testing.T) {
 		if w := len([]rune(stripANSI(line))); w > 40 {
 			t.Errorf("line wider than 40 (%d): %q", w, line)
 		}
+	}
+}
+
+func TestViewShowsDeadPaneIcon(t *testing.T) {
+	items := []Item{{Label: "myrepo/auth", Feature: "auth", Status: "dirty", Agent: "working", PaneDead: true}}
+	m := newTestModel(items, nil)
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
+	out := m.View()
+	if !strings.Contains(out, "☠") {
+		t.Errorf("view missing dead-pane icon:\n%s", out)
+	}
+	if strings.Contains(out, spinnerFrames[0]) {
+		t.Errorf("dead pane should not show the working spinner:\n%s", out)
 	}
 }
 

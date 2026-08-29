@@ -19,6 +19,7 @@ type Item struct {
 	Activity  bool
 	SessionID string
 	WindowID  string
+	PaneDead  bool // the window's tmux pane has died (agent process exited)
 }
 
 // Fetch loads the current rows. It may return ErrSkip to indicate the pane
@@ -31,6 +32,9 @@ type Jump func(sessionID, windowID string) error
 // Remove tears down an item's feature.
 type Remove func(feature string) error
 
+// Restart restarts the agent command in a feature's (dead) pane.
+type Restart func(feature string) error
+
 // ErrSkip tells the model a refresh was intentionally skipped.
 var ErrSkip = errors.New("refresh skipped")
 
@@ -39,6 +43,7 @@ type Model struct {
 	fetch    Fetch
 	jump     Jump
 	remove   Remove
+	restart  Restart
 	interval time.Duration
 
 	items  []Item
@@ -61,8 +66,8 @@ type Model struct {
 }
 
 // NewModel returns a sidebar model refreshing via fetch every interval.
-func NewModel(fetch Fetch, jump Jump, remove Remove, interval time.Duration) Model {
-	return Model{fetch: fetch, jump: jump, remove: remove, interval: interval, width: 32, height: 24}
+func NewModel(fetch Fetch, jump Jump, remove Remove, restart Restart, interval time.Duration) Model {
+	return Model{fetch: fetch, jump: jump, remove: remove, restart: restart, interval: interval, width: 32, height: 24}
 }
 
 type tickMsg struct{}
@@ -94,6 +99,8 @@ type dataMsg struct {
 type jumpMsg struct{ err error }
 
 type removeMsg struct{ err error }
+
+type restartMsg struct{ err error }
 
 func fetchCmd(fetch Fetch) tea.Cmd {
 	return func() tea.Msg {
@@ -140,6 +147,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case removeMsg:
 		m.err = msg.err
 		return m, nil
+	case restartMsg:
+		m.err = msg.err
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -182,6 +192,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			item := m.items[m.cursor]
 			m.confirming = true
 			m.pendingRemove = &item
+		}
+	case "r":
+		if m.cursor < len(m.items) {
+			item := m.items[m.cursor]
+			if !item.PaneDead {
+				return m, nil
+			}
+			restart := m.restart
+			feature := item.Feature
+			return m, func() tea.Msg {
+				return restartMsg{err: restart(feature)}
+			}
 		}
 	case "q", "ctrl+c":
 		m.Quitting = true

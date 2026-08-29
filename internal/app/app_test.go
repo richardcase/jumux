@@ -316,6 +316,57 @@ func TestRemoveCannotInfer(t *testing.T) {
 	}
 }
 
+func TestListShowsDeadAgent(t *testing.T) {
+	f := newFixture(t)
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["tmux list-windows"] = "@2\tauth\tauth\t1"
+	if err := f.app.List(); err != nil {
+		t.Fatal(err)
+	}
+	out := f.out.String()
+	if !strings.Contains(out, "dead") || !strings.Contains(out, "jumux restart auth") {
+		t.Errorf("expected dead-agent hint for auth: %s", out)
+	}
+}
+
+func TestRestartRespawnsDeadPaneAndResendsAgent(t *testing.T) {
+	f := newFixture(t)
+	f.responses["tmux list-windows"] = "@2\tauth\tauth\t1"
+	if err := f.app.Restart("auth", false); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t,
+		"tmux respawn-pane -k -t @2",
+		"tmux send-keys -t @2 -l claude",
+		"tmux send-keys -t @2 Enter",
+	)
+}
+
+func TestRestartAsksConfirmationForLivePane(t *testing.T) {
+	f := newFixture(t)
+	// Default fixture window @2 is not marked dead.
+	f.app.In = strings.NewReader("n\n")
+	if err := f.app.Restart("auth", false); err == nil || !strings.Contains(err.Error(), "aborted") {
+		t.Fatalf("expected abort, got %v", err)
+	}
+	f.assertNotRan(t, "respawn-pane")
+
+	f2 := newFixture(t)
+	if err := f2.app.Restart("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	f2.assertRan(t, "tmux respawn-pane -k -t @2")
+}
+
+func TestRestartUnknownFeature(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Restart("ghost", true); err == nil || !strings.Contains(err.Error(), "no tmux window found") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 	f := newFixture(t)
 	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {

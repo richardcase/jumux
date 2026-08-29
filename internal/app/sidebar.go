@@ -108,6 +108,7 @@ func (a *App) SidebarRun() error {
 				Activity:  row.Activity,
 				SessionID: row.SessionID,
 				WindowID:  row.WindowID,
+				PaneDead:  row.PaneDead,
 			})
 		}
 		return items, nil
@@ -124,8 +125,16 @@ func (a *App) SidebarRun() error {
 		quiet.Errw = io.Discard
 		return quiet.Remove(feature, true)
 	}
+	restart := func(feature string) error {
+		// Restart is only offered for already-dead panes, so it never needs
+		// the "pane looks alive" confirmation prompt; run quietly.
+		quiet := *a
+		quiet.Out = io.Discard
+		quiet.Errw = io.Discard
+		return quiet.Restart(feature, true)
+	}
 
-	final, err := runProgram(sidebar.NewModel(fetch, jump, remove, cfg.SidebarRefreshInterval()))
+	final, err := runProgram(sidebar.NewModel(fetch, jump, remove, restart, cfg.SidebarRefreshInterval()))
 	if err != nil {
 		return err
 	}
