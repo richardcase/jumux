@@ -30,6 +30,8 @@ Commands:
                        given
   rename <old> <new>   rename a feature's jj workspace, directory, and tmux
                        window in place, without recreating the working copy
+  attach <feature>     switch the tmux client to a feature's existing
+                       window, without touching jj or workspace state
   pr [feature]         push feature's bookmark and open a GitHub PR
                        (feature defaults to the current feature)
   mr [feature]         push feature's bookmark and open a GitLab MR
@@ -106,6 +108,14 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Rename(fs.Arg(0), fs.Arg(1))
+	case "attach":
+		fs := flag.NewFlagSet("attach", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() != 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux attach <feature>")
+			os.Exit(2)
+		}
+		err = a.Attach(fs.Arg(0))
 	case "pr":
 		fs := flag.NewFlagSet("pr", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])
