@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/richardcase/jumux/internal/forge"
 	"github.com/richardcase/jumux/internal/jj"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
@@ -134,8 +135,8 @@ func (a *App) checkBaseRevision(ctx *repoContext) doctorCheck {
 }
 
 func (a *App) checkGH() doctorCheck {
-	const name = "gh installed"
-	if _, err := a.Runner.Run("", "gh", "--version"); err != nil {
+	name := forge.GitHub.Bin + " installed"
+	if _, err := a.Runner.Run("", forge.GitHub.Bin, "--version"); err != nil {
 		return doctorCheck{
 			Name:        name,
 			Detail:      err.Error(),
@@ -147,8 +148,8 @@ func (a *App) checkGH() doctorCheck {
 }
 
 func (a *App) checkGlab() doctorCheck {
-	const name = "glab installed"
-	if _, err := a.Runner.Run("", "glab", "--version"); err != nil {
+	name := forge.GitLab.Bin + " installed"
+	if _, err := a.Runner.Run("", forge.GitLab.Bin, "--version"); err != nil {
 		return doctorCheck{
 			Name:        name,
 			Detail:      err.Error(),
