@@ -19,6 +19,10 @@ Commands:
                        command for this feature)
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
+  pr [feature]         push feature's bookmark and open a GitHub PR
+                       (feature defaults to the current feature)
+  mr [feature]         push feature's bookmark and open a GitLab MR
+                       (feature defaults to the current feature)
   list                 show feature workspaces and their tmux windows
   sidebar              toggle a live agent sidebar pane on every tmux window
   hook <status>        record agent status
@@ -60,6 +64,30 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Remove(fs.Arg(0), *force)
+	case "pr":
+		fs := flag.NewFlagSet("pr", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux pr [feature]")
+			os.Exit(2)
+		}
+		feature := ""
+		if fs.NArg() == 1 {
+			feature = fs.Arg(0)
+		}
+		err = a.PR(feature)
+	case "mr":
+		fs := flag.NewFlagSet("mr", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux mr [feature]")
+			os.Exit(2)
+		}
+		feature := ""
+		if fs.NArg() == 1 {
+			feature = fs.Arg(0)
+		}
+		err = a.MR(feature)
 	case "list":
 		err = a.List()
 	case "sidebar":
