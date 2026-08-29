@@ -91,5 +91,24 @@ func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[str
 		}
 		return rows[i].WindowID < rows[j].WindowID
 	})
+	// When more than one repo is present, group rows by repo (stable, so
+	// each repo's rows keep their session/window order) so the sidebar can
+	// render a header per repo instead of an interleaved list.
+	if multipleRepos(rows) {
+		sort.SliceStable(rows, func(i, j int) bool {
+			return rows[i].Repo < rows[j].Repo
+		})
+	}
 	return rows
+}
+
+// multipleRepos reports whether rows resolve to two or more distinct repos.
+func multipleRepos(rows []FeatureStatus) bool {
+	repos := map[string]bool{}
+	for _, row := range rows {
+		if row.Repo != "" {
+			repos[row.Repo] = true
+		}
+	}
+	return len(repos) > 1
 }

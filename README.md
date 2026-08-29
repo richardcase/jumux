@@ -65,6 +65,11 @@ icon, and a `!` marker when tmux has flagged activity in that window.
 | jj | `?` (dim) | jj state unknown |
 | stale | `z` (dim) | idle beyond `stale_after_hours` (no jj changes or hook updates) |
 
+When windows from more than one jumux-managed repo are open, rows are
+grouped under a header naming each repo; with only one repo open the
+header is omitted. `jumux list` likewise adds a REPO column when it
+detects a jumux-tagged tmux window belonging to a different repo.
+
 Keys: `j`/`k` (or arrows) move, `g`/`G` jump to first/last, `Enter` switches
 to the selected feature's window (across sessions), `q` closes the sidebar
 everywhere — same as running `jumux sidebar` again.

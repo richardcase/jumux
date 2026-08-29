@@ -142,6 +142,68 @@ func TestFeatureStatusesStaleDisabled(t *testing.T) {
 	}
 }
 
+func TestFeatureStatusesGroupsByRepoWhenMultiple(t *testing.T) {
+	tmp := t.TempDir()
+	// Two separate main repos, each with one workspace.
+	repoA := filepath.Join(tmp, "repoA")
+	repoB := filepath.Join(tmp, "repoB")
+	wsA := filepath.Join(tmp, "repoA-auth")
+	wsB := filepath.Join(tmp, "repoB-billing")
+	for _, root := range []string{repoA, repoB} {
+		if err := os.MkdirAll(filepath.Join(root, ".jj", "repo"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for ws, mainRoot := range map[string]string{wsA: repoA, wsB: repoB} {
+		if err := os.MkdirAll(filepath.Join(ws, ".jj"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		pointer := filepath.Join(mainRoot, ".jj", "repo")
+		if err := os.WriteFile(filepath.Join(ws, ".jj", "repo"), []byte(pointer), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		if strings.HasPrefix(cmd, "jj root") {
+			return dir, nil
+		}
+		return "clean", nil
+	}}
+	// Sorted by session/window first: @1 (repoB) before @2 (repoA); with
+	// grouping active the output should be stably re-sorted by repo,
+	// keeping session/window order within each repo.
+	windows := []tmuxctl.GlobalWindow{
+		{SessionName: "a", ID: "@1", Feature: "billing", Path: wsB},
+		{SessionName: "a", ID: "@2", Feature: "auth", Path: wsA},
+	}
+	rows := featureStatuses(fr, windows, nil, nil, statusNow, 0)
+	if len(rows) != 2 || rows[0].Repo != "repoA" || rows[1].Repo != "repoB" {
+		t.Fatalf("expected rows grouped by repo (repoA, repoB); got %+v", rows)
+	}
+}
+
+func TestFeatureStatusesNoGroupingForSingleRepo(t *testing.T) {
+	_, ws := statusFixture(t, "auth", "billing")
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		if strings.HasPrefix(cmd, "jj root") {
+			return dir, nil
+		}
+		return "clean", nil
+	}}
+	windows := []tmuxctl.GlobalWindow{
+		{SessionName: "a", ID: "@9", Feature: "billing", Path: ws["billing"]},
+		{SessionName: "a", ID: "@2", Feature: "auth", Path: ws["auth"]},
+	}
+	rows := featureStatuses(fr, windows, nil, nil, statusNow, 0)
+	// Single repo: original session/window order is preserved, not
+	// re-sorted by feature/repo name.
+	if rows[0].Feature != "auth" || rows[1].Feature != "billing" {
+		t.Errorf("expected session/window order preserved; got %+v", rows)
+	}
+}
+
 func TestFeatureStatusesCachesRootPerPath(t *testing.T) {
 	_, ws := statusFixture(t, "auth")
 	rootCalls := 0

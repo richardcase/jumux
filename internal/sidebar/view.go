@@ -9,12 +9,13 @@ import (
 var (
 	headerStyle   = lipgloss.NewStyle().Bold(true)
 	selectedStyle = lipgloss.NewStyle().Reverse(true)
-	dirtyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
-	cleanStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // green
-	unknownStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // dim
-	activityStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
-	workingStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
-	staleStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // dim
+	dirtyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))            // yellow
+	cleanStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))            // green
+	unknownStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))            // dim
+	activityStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))            // magenta
+	workingStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))            // cyan
+	staleStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))            // dim
+	groupStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("4")) // blue
 	footerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	errStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 )
@@ -55,6 +56,18 @@ func jjIcon(status string) string {
 	return unknownStyle.Render("?")
 }
 
+// multiRepo reports whether items span two or more distinct, resolved
+// repos, in which case the view groups rows under a repo header per block.
+func multiRepo(items []Item) bool {
+	repos := map[string]bool{}
+	for _, it := range items {
+		if it.Repo != "" {
+			repos[it.Repo] = true
+		}
+	}
+	return len(repos) > 1
+}
+
 func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render(truncate("jumux", m.width)))
@@ -66,7 +79,18 @@ func (m Model) View() string {
 	}
 	// Row: cursor(1) activity(1) sp(1) agent(1) sp(1) label gap(≥2) stale(1) sp(1) jj(1).
 	const rowOverhead = 10
+	grouped := multiRepo(m.items)
+	var lastRepo string
 	for i, it := range m.items {
+		if grouped && (i == 0 || it.Repo != lastRepo) {
+			repoLabel := it.Repo
+			if repoLabel == "" {
+				repoLabel = "?"
+			}
+			b.WriteString(groupStyle.Render(truncate(repoLabel, m.width)))
+			b.WriteString("\n")
+			lastRepo = it.Repo
+		}
 		cursor := " "
 		if i == m.cursor {
 			cursor = selectedStyle.Render("▸")

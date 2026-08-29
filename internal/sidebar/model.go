@@ -13,6 +13,7 @@ import (
 // Item is one row in the sidebar.
 type Item struct {
 	Label     string // "repo/feature"
+	Repo      string // base name of the row's jj main root, "" if unresolved
 	Feature   string // raw feature name, used to remove
 	Status    string // "clean" | "dirty" | "unknown"
 	Agent     string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
