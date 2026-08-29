@@ -8,8 +8,11 @@ feature.
 jumux add <feature>       create a jj workspace + tmux window, start the agent
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
 jumux list                show feature workspaces and their tmux windows
+jumux pr [feature]        push the feature's bookmark and open a GitHub PR
+jumux mr [feature]        push the feature's bookmark and open a GitLab MR
 jumux sidebar             toggle a live agent sidebar pane on every tmux window
 jumux hook <status>       record agent status (working|waiting|done) from hooks
+jumux doctor              check the environment and report problems to fix
 ```
 
 ## What `add` does
