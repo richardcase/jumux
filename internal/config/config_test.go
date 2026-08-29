@@ -28,6 +28,31 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SidebarWidthCols() != 32 || cfg.SidebarRefreshInterval() != 2*time.Second {
 		t.Errorf("unexpected sidebar defaults: %+v", cfg)
 	}
+	if d, ok := cfg.StaleThreshold(); !ok || d != 168*time.Hour {
+		t.Errorf("unexpected stale default: %v, %v", d, ok)
+	}
+}
+
+func TestStaleThreshold(t *testing.T) {
+	tests := []struct {
+		name  string
+		hours int
+		want  time.Duration
+		ok    bool
+	}{
+		{name: "default disabled by zero", hours: 0, want: 0, ok: false},
+		{name: "negative disables", hours: -1, want: 0, ok: false},
+		{name: "positive enables", hours: 48, want: 48 * time.Hour, ok: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := Config{StaleAfterHours: tt.hours}
+			d, ok := c.StaleThreshold()
+			if d != tt.want || ok != tt.ok {
+				t.Errorf("StaleThreshold() = %v, %v, want %v, %v", d, ok, tt.want, tt.ok)
+			}
+		})
+	}
 }
 
 func TestSidebarOverrides(t *testing.T) {

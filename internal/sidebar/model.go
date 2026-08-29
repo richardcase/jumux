@@ -17,6 +17,7 @@ type Item struct {
 	Status    string // "clean" | "dirty" | "unknown"
 	Agent     string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
 	Activity  bool
+	Stale     bool // idle beyond the configured stale threshold
 	SessionID string
 	WindowID  string
 	PaneDead  bool // the window's tmux pane has died (agent process exited)

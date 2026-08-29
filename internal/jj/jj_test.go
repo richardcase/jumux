@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/richardcase/jumux/internal/run"
 )
@@ -184,5 +185,37 @@ func TestDescriptionError(t *testing.T) {
 	}}
 	if _, err := Description(frErr, "/repo", "myfeature@"); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestLastChangeTime(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "1700000000\n", nil
+	}}
+	got, err := LastChangeTime(fr, "/repo-auth", "auth")
+	if err != nil {
+		t.Fatalf("LastChangeTime() error = %v", err)
+	}
+	if want := time.Unix(1700000000, 0); !got.Equal(want) {
+		t.Errorf("LastChangeTime() = %v, want %v", got, want)
+	}
+	wantCmd := `jj log -r auth@ --no-graph -T committer.timestamp().format("%s")` + "\n"
+	if gotCmd := fr.CommandLines(); gotCmd != wantCmd {
+		t.Errorf("CommandLines() = %q, want %q", gotCmd, wantCmd)
+	}
+}
+
+func TestLastChangeTimeErrors(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if _, err := LastChangeTime(frErr, "/repo-auth", "auth"); err == nil {
+		t.Fatal("expected error from failing command, got nil")
+	}
+	frBad := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "not-a-number", nil
+	}}
+	if _, err := LastChangeTime(frBad, "/repo-auth", "auth"); err == nil {
+		t.Fatal("expected error from unparseable timestamp, got nil")
 	}
 }

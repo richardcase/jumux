@@ -14,6 +14,7 @@ var (
 	unknownStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // dim
 	activityStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
 	workingStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
+	staleStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // dim
 	footerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	errStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 )
@@ -63,8 +64,8 @@ func (m Model) View() string {
 		b.WriteString(unknownStyle.Render(truncate("no agents", m.width)))
 		b.WriteString("\n")
 	}
-	// Row: cursor(1) activity(1) sp(1) agent(1) sp(1) label gap(≥2) jj(1).
-	const rowOverhead = 8
+	// Row: cursor(1) activity(1) sp(1) agent(1) sp(1) label gap(≥2) stale(1) sp(1) jj(1).
+	const rowOverhead = 10
 	for i, it := range m.items {
 		cursor := " "
 		if i == m.cursor {
@@ -74,10 +75,14 @@ func (m Model) View() string {
 		if it.Activity {
 			marker = activityStyle.Render("!")
 		}
+		stale := " "
+		if it.Stale {
+			stale = staleStyle.Render("z")
+		}
 		label := truncate(it.Label, m.width-rowOverhead)
 		pad := max(0, m.width-rowOverhead-len([]rune(label)))
 		line := cursor + marker + " " + agentIcon(it.Agent, it.PaneDead, m.frame) + " " +
-			label + strings.Repeat(" ", pad+2) + jjIcon(it.Status)
+			label + strings.Repeat(" ", pad+2) + stale + " " + jjIcon(it.Status)
 		b.WriteString(truncateANSIAware(line, m.width))
 		b.WriteString("\n")
 	}

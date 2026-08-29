@@ -63,6 +63,7 @@ icon, and a `!` marker when tmux has flagged activity in that window.
 | jj | `✓` (green) | working copy clean |
 | jj | `●` (yellow) | working copy has changes |
 | jj | `?` (dim) | jj state unknown |
+| stale | `z` (dim) | idle beyond `stale_after_hours` (no jj changes or hook updates) |
 
 Keys: `j`/`k` (or arrows) move, `g`/`G` jump to first/last, `Enter` switches
 to the selected feature's window (across sessions), `q` closes the sidebar
@@ -115,6 +116,7 @@ window_prefix = ""          # prepended to tmux window names
 sidebar_width = 32          # sidebar pane width in columns
 sidebar_refresh = 2         # sidebar refresh interval in seconds
 notify = true               # send a desktop notification on status changes
+stale_after_hours = 168     # idle threshold for the stale indicator; 0 disables it
 ```
 
 Run `jumux config show` to see the effective merged value of every key,

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/richardcase/jumux/internal/run"
 )
@@ -115,6 +117,22 @@ func BookmarkSet(r run.Runner, dir, name, rev string) error {
 func GitPush(r run.Runner, dir, bookmark string) error {
 	_, err := r.Run(dir, "jj", "git", "push", "--bookmark", bookmark)
 	return err
+}
+
+// LastChangeTime returns when name's working-copy commit was last touched
+// (the committer timestamp, which jj updates on every snapshot). It runs in
+// wsPath so the working copy is snapshotted first, like IsDirty.
+func LastChangeTime(r run.Runner, wsPath, name string) (time.Time, error) {
+	out, err := r.Run(wsPath, "jj", "log", "-r", name+"@", "--no-graph",
+		"-T", `committer.timestamp().format("%s")`)
+	if err != nil {
+		return time.Time{}, err
+	}
+	sec, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parsing jj commit timestamp %q: %w", out, err)
+	}
+	return time.Unix(sec, 0), nil
 }
 
 // Description returns the full change description for rev.
