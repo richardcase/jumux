@@ -18,6 +18,7 @@ type Window struct {
 	ID      string
 	Name    string
 	Feature string // value of @jumux-feature, "" if unset
+	Dead    bool   // pane_dead of the window's active pane
 }
 
 // NewWindow creates a detached window and returns its window ID.
@@ -62,6 +63,14 @@ func KillWindow(r run.Runner, windowID string) error {
 	return err
 }
 
+// RespawnPane restarts a dead window's active pane in place (killing any
+// surviving process first) so a new command can be started in it. The
+// pane keeps its window/pane IDs and working directory.
+func RespawnPane(r run.Runner, windowID string) error {
+	_, err := r.Run("", "tmux", "respawn-pane", "-k", "-t", windowID)
+	return err
+}
+
 // ServerRunning reports whether the tmux server is reachable.
 func ServerRunning(r run.Runner) error {
 	_, err := r.Run("", "tmux", "list-sessions")
@@ -71,7 +80,7 @@ func ServerRunning(r run.Runner) error {
 // ListWindows returns the windows of the current session.
 func ListWindows(r run.Runner) ([]Window, error) {
 	out, err := r.Run("", "tmux", "list-windows", "-F",
-		"#{window_id}\t#{window_name}\t#{"+FeatureOption+"}")
+		"#{window_id}\t#{window_name}\t#{"+FeatureOption+"}\t#{pane_dead}")
 	if err != nil {
 		return nil, err
 	}
@@ -80,13 +89,16 @@ func ListWindows(r run.Runner) ([]Window, error) {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "\t", 3)
+		parts := strings.SplitN(line, "\t", 4)
 		w := Window{ID: parts[0]}
 		if len(parts) > 1 {
 			w.Name = parts[1]
 		}
 		if len(parts) > 2 {
 			w.Feature = parts[2]
+		}
+		if len(parts) > 3 {
+			w.Dead = parts[3] == "1"
 		}
 		windows = append(windows, w)
 	}

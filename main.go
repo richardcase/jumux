@@ -19,6 +19,10 @@ Commands:
                        command for this feature)
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
+  restart [-f] [name]  restart the configured agent in a feature's tmux
+                       window (name defaults to the current feature); asks
+                       for confirmation unless the pane looks dead or -f is
+                       given
   pr [feature]         push feature's bookmark and open a GitHub PR
                        (feature defaults to the current feature)
   mr [feature]         push feature's bookmark and open a GitLab MR
@@ -64,6 +68,16 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Remove(fs.Arg(0), *force)
+	case "restart":
+		fs := flag.NewFlagSet("restart", flag.ExitOnError)
+		force := fs.Bool("force", false, "skip the alive-pane confirmation")
+		fs.BoolVar(force, "f", *force, "shorthand for -force")
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux restart [-f] [name]")
+			os.Exit(2)
+		}
+		err = a.Restart(fs.Arg(0), *force)
 	case "pr":
 		fs := flag.NewFlagSet("pr", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])

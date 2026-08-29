@@ -20,10 +20,14 @@ var (
 
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-// agentIcon renders the agent-liveness column: an animated spinner while the
-// agent works, ? while it waits for input, ✓ when done, ! when blocked on a
+// agentIcon renders the agent-liveness column: ☠ when the tmux pane itself
+// has died (the agent process exited), an animated spinner while the agent
+// works, ? while it waits for input, ✓ when done, ! when blocked on a
 // permission prompt, ✗ on a tool error, · with no data.
-func agentIcon(agent string, frame int) string {
+func agentIcon(agent string, dead bool, frame int) string {
+	if dead {
+		return errStyle.Render("☠")
+	}
 	switch agent {
 	case "working":
 		return workingStyle.Render(spinnerFrames[frame%len(spinnerFrames)])
@@ -72,7 +76,7 @@ func (m Model) View() string {
 		}
 		label := truncate(it.Label, m.width-rowOverhead)
 		pad := max(0, m.width-rowOverhead-len([]rune(label)))
-		line := cursor + marker + " " + agentIcon(it.Agent, m.frame) + " " +
+		line := cursor + marker + " " + agentIcon(it.Agent, it.PaneDead, m.frame) + " " +
 			label + strings.Repeat(" ", pad+2) + jjIcon(it.Status)
 		b.WriteString(truncateANSIAware(line, m.width))
 		b.WriteString("\n")
@@ -85,7 +89,7 @@ func (m Model) View() string {
 	case m.err != nil:
 		footer = errStyle.Render(truncate(m.err.Error(), m.width))
 	default:
-		footer = footerStyle.Render(truncate("j/k move · ⏎ jump · d remove · q quit", m.width))
+		footer = footerStyle.Render(truncate("j/k move · ⏎ jump · d remove · r restart · q quit", m.width))
 	}
 	b.WriteString("\n")
 	b.WriteString(footer)

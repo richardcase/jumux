@@ -21,6 +21,7 @@ type FeatureStatus struct {
 	SessionName string
 	WindowID    string
 	Activity    bool
+	PaneDead    bool // the window's tmux pane has died (agent process exited)
 }
 
 // featureStatuses builds rows from every window (any session) carrying the
@@ -45,6 +46,7 @@ func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[str
 			SessionName: w.SessionName,
 			WindowID:    w.ID,
 			Activity:    w.Activity,
+			PaneDead:    w.Dead,
 		}
 		mainRoot, seen := mainRoots[w.Path]
 		if !seen {

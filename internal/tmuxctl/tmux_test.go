@@ -25,7 +25,7 @@ func TestServerRunning(t *testing.T) {
 
 func TestListAndFindWindow(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
-		return "@1\tzsh\t\n@2\trenamed-by-agent\tauth\n@3\tbilling\t", nil
+		return "@1\tzsh\t\t0\n@2\trenamed-by-agent\tauth\t0\n@3\tbilling\t\t1", nil
 	}}
 	windows, err := ListWindows(fr)
 	if err != nil {
@@ -34,15 +34,29 @@ func TestListAndFindWindow(t *testing.T) {
 	if len(windows) != 3 {
 		t.Fatalf("got %d windows", len(windows))
 	}
+	if windows[0].Dead || windows[1].Dead || !windows[2].Dead {
+		t.Errorf("dead flags wrong: %+v", windows)
+	}
 	// Feature tag wins over name, surviving a rename.
 	if w, ok := FindWindow(windows, "auth", "auth"); !ok || w.ID != "@2" {
 		t.Errorf("feature-tag lookup: got %+v, %v", w, ok)
 	}
 	// Fallback to exact window name when no tag matches.
-	if w, ok := FindWindow(windows, "billing", "billing"); !ok || w.ID != "@3" {
+	if w, ok := FindWindow(windows, "billing", "billing"); !ok || w.ID != "@3" || !w.Dead {
 		t.Errorf("name fallback: got %+v, %v", w, ok)
 	}
 	if _, ok := FindWindow(windows, "nope", "nope"); ok {
 		t.Error("unexpected match")
+	}
+}
+
+func TestRespawnPane(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := RespawnPane(fr, "@3"); err != nil {
+		t.Fatal(err)
+	}
+	want := "tmux respawn-pane -k -t @3"
+	if got := fr.Calls[0].String(); got != want {
+		t.Errorf("command %q, want %q", got, want)
 	}
 }
