@@ -45,6 +45,9 @@ Commands:
                        Claude Code hooks) and print a pass/fail checklist
   config show          print the effective merged config and which file
                        (global, repo, or default) each value came from
+  completion <bash|zsh|fish>
+                       print a shell completion script (source it, or save
+                       it where your shell loads completions from)
 
 Config: ~/.config/jumux/config.toml, overridden per-repo by .jumux.toml
 `
@@ -169,6 +172,16 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.ConfigShow()
+	case "completion":
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "usage: jumux completion <bash|zsh|fish>")
+			os.Exit(2)
+		}
+		err = a.Completion(os.Args[2])
+	case "__complete-features":
+		// Hidden: used internally by the completion scripts to list feature
+		// names; not part of the public CLI surface.
+		err = a.CompletionFeatures()
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
