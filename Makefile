@@ -1,23 +1,26 @@
 BINARY := jumux
 
-.PHONY: all build test lint fmt vet clean
+.PHONY: all tools build test lint fmt vet clean
 
-all: build test lint
+all: tools build test lint
+
+tools:
+	mise install
 
 build:
-	go build -o bin/$(BINARY) .
+	mise exec -- go build -o bin/$(BINARY) .
 
 test:
-	go test ./...
+	mise exec -- go test ./...
 
 lint:
-	golangci-lint run
+	mise exec -- golangci-lint run
 
 fmt:
 	gofmt -l -w .
 
 vet:
-	go vet ./...
+	mise exec -- go vet ./...
 
 clean:
 	rm -rf bin/ dist/

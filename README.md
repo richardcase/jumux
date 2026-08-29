@@ -139,3 +139,16 @@ The binary is named `jumux`. If you'd rather type `jjm`, add an alias:
 ```
 alias jjm=jumux
 ```
+
+## Development tooling
+
+This repo uses [mise](https://mise.jdx.dev/) to pin the Go, golangci-lint,
+and goreleaser versions used to build, test, and release it (see
+`mise.toml`). After installing mise, run:
+
+```
+mise install
+```
+
+`make build`, `make test`, `make lint`, and `make vet` all run through
+`mise exec`, so they automatically use the pinned tool versions.
