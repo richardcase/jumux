@@ -13,6 +13,7 @@ jumux mr [feature]        push the feature's bookmark and open a GitLab MR
 jumux sidebar             toggle a live agent sidebar pane on every tmux window
 jumux hook <status>       record agent status (working|waiting|done) from hooks
 jumux doctor              check the environment and report problems to fix
+jumux config show         print the effective config and where each value came from
 ```
 
 ## What `add` does
@@ -112,7 +113,12 @@ base_revision = "trunk()"   # revset new workspaces are based on
 window_prefix = ""          # prepended to tmux window names
 sidebar_width = 32          # sidebar pane width in columns
 sidebar_refresh = 2         # sidebar refresh interval in seconds
+notify = true               # send a desktop notification on status changes
 ```
+
+Run `jumux config show` to see the effective merged value of every key,
+along with whether it came from the repo file, the global file, or the
+built-in default — handy for debugging precedence between the two files.
 
 Example with a starting prompt:
 
