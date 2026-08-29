@@ -50,6 +50,18 @@ func TestListAndFindWindow(t *testing.T) {
 	}
 }
 
+func TestRenameWindow(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := RenameWindow(fr, "@2", "ai-billing", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	want := "tmux rename-window -t @2 ai-billing\n" +
+		"tmux set-option -w -t @2 @jumux-feature billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("commands:\n got %q\nwant %q", got, want)
+	}
+}
+
 func TestRespawnPane(t *testing.T) {
 	fr := &run.FakeRunner{}
 	if err := RespawnPane(fr, "@3"); err != nil {
