@@ -29,6 +29,32 @@ func TestPRExplicitFeature(t *testing.T) {
 	}
 }
 
+func TestPRInfersFeatureFromWindowTag(t *testing.T) {
+	f := newFixture(t)
+	f.responses["tmux display-message"] = "auth"
+	f.responses["jj log"] = "Add widget support\n\nThis adds widgets."
+
+	if err := f.app.PR(""); err != nil {
+		t.Fatalf("PR() error = %v", err)
+	}
+
+	f.assertRan(t, "jj bookmark set auth -r auth@", "jj git push --bookmark auth")
+
+	found := false
+	for _, c := range f.runner.Calls {
+		if c.Name == "gh" && len(c.Args) > 0 && c.Args[0] == "pr" {
+			found = true
+			wantArgs := []string{"pr", "create", "--title", "Add widget support", "--body", "This adds widgets."}
+			if strings.Join(c.Args, " ") != strings.Join(wantArgs, " ") {
+				t.Errorf("gh args = %v, want %v", c.Args, wantArgs)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected a gh pr create call, got none")
+	}
+}
+
 func TestPRAlreadyExistsSucceeds(t *testing.T) {
 	f := newFixture(t)
 	orig := f.runner.Handler

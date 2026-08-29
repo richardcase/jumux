@@ -29,6 +29,32 @@ func TestMRExplicitFeature(t *testing.T) {
 	}
 }
 
+func TestMRInfersFeatureFromWindowTag(t *testing.T) {
+	f := newFixture(t)
+	f.responses["tmux display-message"] = "auth"
+	f.responses["jj log"] = "Add widget support\n\nThis adds widgets."
+
+	if err := f.app.MR(""); err != nil {
+		t.Fatalf("MR() error = %v", err)
+	}
+
+	f.assertRan(t, "jj bookmark set auth -r auth@", "jj git push --bookmark auth")
+
+	found := false
+	for _, c := range f.runner.Calls {
+		if c.Name == "glab" && len(c.Args) > 0 && c.Args[0] == "mr" {
+			found = true
+			wantArgs := []string{"mr", "create", "--title", "Add widget support", "--description", "This adds widgets."}
+			if strings.Join(c.Args, " ") != strings.Join(wantArgs, " ") {
+				t.Errorf("glab args = %v, want %v", c.Args, wantArgs)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected a glab mr create call, got none")
+	}
+}
+
 func TestMRAlreadyExistsSucceeds(t *testing.T) {
 	f := newFixture(t)
 	orig := f.runner.Handler
