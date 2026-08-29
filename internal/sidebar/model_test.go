@@ -306,6 +306,39 @@ func TestViewShowsDeadPaneIcon(t *testing.T) {
 	}
 }
 
+func TestViewGroupsByRepoWhenMultiple(t *testing.T) {
+	items := []Item{
+		{Label: "repoA/auth", Repo: "repoA", Feature: "auth", SessionID: "$0", WindowID: "@1"},
+		{Label: "repoB/billing", Repo: "repoB", Feature: "billing", SessionID: "$0", WindowID: "@2"},
+	}
+	m := newTestModel(items, nil)
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
+	out := m.View()
+	idxA := strings.Index(out, "repoA")
+	idxB := strings.Index(out, "repoB")
+	idxAuth := strings.Index(out, "repoA/auth")
+	idxBilling := strings.Index(out, "repoB/billing")
+	if idxA < 0 || idxB < 0 || idxAuth < 0 || idxBilling < 0 {
+		t.Fatalf("missing expected content:\n%s", out)
+	}
+	if idxA >= idxAuth || idxAuth >= idxB || idxB >= idxBilling {
+		t.Errorf("expected repo headers directly above each group:\n%s", out)
+	}
+}
+
+func TestViewNoGroupingForSingleRepo(t *testing.T) {
+	// testItems() leaves Repo unset on every item, so grouping must stay off
+	// regardless of what the labels look like.
+	m := newTestModel(testItems(), nil)
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
+	out := m.View()
+	for _, line := range strings.Split(out, "\n") {
+		if trimmed := strings.TrimSpace(stripANSI(line)); trimmed == "myrepo" || trimmed == "other" {
+			t.Errorf("unexpected standalone group header line %q:\n%s", trimmed, out)
+		}
+	}
+}
+
 func TestViewShowsStaleMarker(t *testing.T) {
 	items := testItems()
 	items[1].Stale = true // billing

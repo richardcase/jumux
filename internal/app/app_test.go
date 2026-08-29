@@ -428,6 +428,61 @@ func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 	}
 }
 
+func TestListShowsRepoColumnWhenAnotherRepoOpen(t *testing.T) {
+	f := newFixture(t)
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22"
+	// A second, unrelated repo's workspace is open in another session.
+	otherRepo := filepath.Join(t.TempDir(), "otherrepo")
+	if err := os.MkdirAll(filepath.Join(otherRepo, ".jj", "repo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["tmux list-windows -a"] = "$0\tmain\t@2\tauth\tauth\t" + f.wsPath("auth") + "\t0\n" +
+		"$1\tother\t@8\tfoo\tfoo\t" + otherRepo + "\t0"
+	f.runner.Handler = func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		switch {
+		case strings.HasPrefix(cmd, "tmux list-windows -a"):
+			return f.responses["tmux list-windows -a"], nil
+		case strings.HasPrefix(cmd, "jj root"):
+			return dir, nil // jj.Root resolves to the workspace containing dir
+		}
+		for prefix, resp := range f.responses {
+			if strings.HasPrefix(cmd, prefix) {
+				return resp, nil
+			}
+		}
+		return "", nil
+	}
+	if err := f.app.List(); err != nil {
+		t.Fatal(err)
+	}
+	out := f.out.String()
+	if !strings.Contains(out, "REPO") {
+		t.Errorf("expected a REPO column header when another repo is open: %s", out)
+	}
+	if !strings.Contains(out, "myrepo") {
+		t.Errorf("expected rows labeled with the current repo name: %s", out)
+	}
+}
+
+func TestListOmitsRepoColumnForSingleRepo(t *testing.T) {
+	f := newFixture(t)
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22"
+	if err := f.app.List(); err != nil {
+		t.Fatal(err)
+	}
+	out := f.out.String()
+	if strings.Contains(out, "REPO") {
+		t.Errorf("expected no REPO column with a single repo open: %s", out)
+	}
+}
+
 func TestListSurfacesIdleFeatures(t *testing.T) {
 	f := newFixture(t)
 	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
