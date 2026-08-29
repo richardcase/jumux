@@ -108,6 +108,7 @@ func (a *App) SidebarRun() error {
 			}
 			items = append(items, sidebar.Item{
 				Label:     label,
+				Repo:      row.Repo,
 				Feature:   row.Feature,
 				Status:    row.Status,
 				Agent:     row.AgentStatus,

@@ -3,11 +3,13 @@ package app
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 	"time"
 
 	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/run"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
@@ -22,17 +24,26 @@ func (a *App) List() error {
 		return err
 	}
 	var windows []tmuxctl.Window
+	showRepo := false
 	if a.Getenv("TMUX") != "" {
 		if windows, err = tmuxctl.ListWindows(a.Runner); err != nil {
 			return err
+		}
+		if all, err := tmuxctl.ListAllWindows(a.Runner); err == nil {
+			showRepo = otherRepoOpen(a.Runner, all, ctx.MainRoot)
 		}
 	}
 	threshold, staleEnabled := ctx.Config.StaleThreshold()
 	now := a.now()
 	lastHookUpdate := agentstate.LastUpdated(a.StateDir)
+	repo := filepath.Base(ctx.MainRoot)
 
 	w := tabwriter.NewWriter(a.Out, 2, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tSTATUS\tIDLE")
+	if showRepo {
+		_, _ = fmt.Fprintln(w, "REPO\tFEATURE\tWORKSPACE\tWINDOW\tSTATUS\tIDLE")
+	} else {
+		_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tSTATUS\tIDLE")
+	}
 	count := 0
 	for _, name := range names {
 		if name == "default" {
@@ -60,12 +71,41 @@ func (a *App) List() error {
 				idleCol = formatIdle(now.Sub(last), now.Sub(last) > threshold)
 			}
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", name, wsPath, windowCol, status, idleCol)
+		if showRepo {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", repo, name, wsPath, windowCol, status, idleCol)
+		} else {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", name, wsPath, windowCol, status, idleCol)
+		}
 	}
 	if count == 0 {
 		return w.Flush() // header only; keep output predictable
 	}
 	return w.Flush()
+}
+
+// otherRepoOpen reports whether any jumux-tagged tmux window (any session)
+// resolves to a jj repo other than mainRoot, meaning more than one
+// jumux-managed repo is currently open.
+func otherRepoOpen(r run.Runner, windows []tmuxctl.GlobalWindow, mainRoot string) bool {
+	seen := map[string]bool{} // path -> already resolved
+	for _, win := range windows {
+		if win.Feature == "" || win.Path == "" || seen[win.Path] {
+			continue
+		}
+		seen[win.Path] = true
+		wsRoot, err := jj.Root(r, win.Path)
+		if err != nil {
+			continue
+		}
+		otherRoot, err := jj.MainRoot(wsRoot)
+		if err != nil {
+			continue
+		}
+		if otherRoot != mainRoot {
+			return true
+		}
+	}
+	return false
 }
 
 // lastActivity returns the most recent of a feature's last jj change and
