@@ -5,6 +5,7 @@ package app
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -39,6 +40,8 @@ type App struct {
 	// offers to install the status hooks ("" to skip the offer).
 	ClaudeSettings string
 	Now            func() time.Time
+	// HTTPClient is used to send webhook notifications (notify_webhook).
+	HTTPClient *http.Client
 }
 
 // New returns an App wired to the real environment.
@@ -60,7 +63,8 @@ func New() *App {
 			}
 			return filepath.Join(home, ".claude", "settings.json")
 		}(),
-		Now: time.Now,
+		Now:        time.Now,
+		HTTPClient: http.DefaultClient,
 	}
 }
 

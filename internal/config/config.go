@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,15 @@ type Config struct {
 	SidebarRefresh  int    `toml:"sidebar_refresh"`
 	Notify          *bool  `toml:"notify"`
 	StaleAfterHours int    `toml:"stale_after_hours"`
+	// NotifyQuietStart and NotifyQuietEnd bound a daily "HH:MM"-"HH:MM"
+	// (24h, local time) window during which status-change notifications
+	// are suppressed. A window that wraps past midnight (start > end) is
+	// supported. Leave both unset to disable quiet hours.
+	NotifyQuietStart string `toml:"notify_quiet_start"`
+	NotifyQuietEnd   string `toml:"notify_quiet_end"`
+	// NotifyWebhook, if set, is a URL that notifications are POSTed to
+	// (as JSON) in addition to the OS desktop notification.
+	NotifyWebhook string `toml:"notify_webhook"`
 	// Templates are named presets bundling base_revision/agent/window
 	// options for a recurring kind of feature, selected via
 	// `jumux add --template <name>`. A template defined in the repo file
@@ -138,6 +148,38 @@ func (c Config) WithTemplate(name string) (Config, error) {
 		out.WindowPrefix = t.WindowPrefix
 	}
 	return out, nil
+}
+
+// InQuietHours reports whether t's local time-of-day falls within the
+// configured notify_quiet_start/notify_quiet_end window. It returns false
+// (quiet hours disabled) if either bound is unset or unparsable, or if
+// they're equal (a zero-length window).
+func (c Config) InQuietHours(t time.Time) bool {
+	start, ok1 := parseClock(c.NotifyQuietStart)
+	end, ok2 := parseClock(c.NotifyQuietEnd)
+	if !ok1 || !ok2 || start == end {
+		return false
+	}
+	cur := t.Hour()*60 + t.Minute()
+	if start < end {
+		return cur >= start && cur < end
+	}
+	// The window wraps past midnight, e.g. 22:00-06:00.
+	return cur >= start || cur < end
+}
+
+// parseClock parses "HH:MM" (24h) into minutes since midnight.
+func parseClock(s string) (int, bool) {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) != 2 {
+		return 0, false
+	}
+	h, errH := strconv.Atoi(parts[0])
+	m, errM := strconv.Atoi(parts[1])
+	if errH != nil || errM != nil || h < 0 || h > 23 || m < 0 || m > 59 {
+		return 0, false
+	}
+	return h*60 + m, true
 }
 
 // SidebarWidthCols returns the sidebar pane width in columns (default 32).

@@ -127,11 +127,31 @@ sidebar_width = 32          # sidebar pane width in columns
 sidebar_refresh = 2         # sidebar refresh interval in seconds
 notify = true               # send a desktop notification on status changes
 stale_after_hours = 168     # idle threshold for the stale indicator; 0 disables it
+notify_quiet_start = ""     # start of a daily "HH:MM" window to suppress notifications
+notify_quiet_end = ""       # end of that window; leave both unset to disable quiet hours
+notify_webhook = ""         # if set, also POST {"title","message"} JSON here on status changes
 ```
 
 Run `jumux config show` to see the effective merged value of every key,
 along with whether it came from the repo file, the global file, or the
 built-in default — handy for debugging precedence between the two files.
+
+`notify` gates the OS desktop notification (`osascript` on macOS,
+`notify-send` on Linux) sent by `jumux hook` on a status change to
+waiting/done/blocked/error.
+
+`notify_quiet_start`/`notify_quiet_end` bound a daily local-time window
+(24h `"HH:MM"`) during which notifications (both the desktop notification
+and the webhook) are suppressed — handy for muting notifications
+overnight. A window where start is after end wraps past midnight, e.g.
+`notify_quiet_start = "22:00"`, `notify_quiet_end = "06:00"`. Leave either
+unset to disable quiet hours.
+
+`notify_webhook`, if set, additionally POSTs a JSON body
+(`{"title": "...", "message": "..."}`) to that URL on the same status
+changes — useful for routing notifications somewhere other than the local
+desktop (chat webhook, phone push gateway, etc.) when you're away from
+the machine. A webhook failure is logged but never fails the hook.
 
 Example with a starting prompt:
 

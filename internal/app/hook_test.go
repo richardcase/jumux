@@ -2,7 +2,10 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +14,7 @@ import (
 	"time"
 
 	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/notify"
 	"github.com/richardcase/jumux/internal/run"
 )
 
@@ -190,6 +194,19 @@ func TestHookNotify(t *testing.T) {
 			status:           "waiting",
 			wantConfigLoaded: true,
 		},
+		{
+			name:             "does not notify during quiet hours",
+			notifyToml:       "notify_quiet_start = \"11:00\"\nnotify_quiet_end = \"13:00\"\n",
+			status:           "waiting",
+			wantConfigLoaded: true,
+		},
+		{
+			name:             "notifies outside quiet hours",
+			notifyToml:       "notify_quiet_start = \"13:00\"\nnotify_quiet_end = \"14:00\"\n",
+			status:           "waiting",
+			wantConfigLoaded: true,
+			wantNotify:       true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -215,5 +232,43 @@ func TestHookNotify(t *testing.T) {
 				t.Errorf("commands run = %d, want %d; ran:\n%s", len(fr.Calls), want, fr.CommandLines())
 			}
 		})
+	}
+}
+
+func TestHookNotifyWebhook(t *testing.T) {
+	var gotBody notify.WebhookPayload
+	var hits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	a, _ := newNotifyApp(t, "notify_webhook = \""+server.URL+"\"\n")
+	a.HTTPClient = server.Client()
+
+	if err := a.Hook("waiting"); err != nil {
+		t.Fatal(err)
+	}
+	if hits != 1 {
+		t.Fatalf("webhook hits = %d, want 1", hits)
+	}
+	if gotBody.Title == "" || gotBody.Message != "waiting" {
+		t.Errorf("unexpected webhook payload: %+v", gotBody)
+	}
+}
+
+func TestHookNotifyWebhookErrorIsNonFatal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	a, _ := newNotifyApp(t, "notify_webhook = \""+server.URL+"\"\n")
+	a.HTTPClient = server.Client()
+
+	if err := a.Hook("waiting"); err != nil {
+		t.Fatalf("Hook should not fail on webhook error, got %v", err)
 	}
 }

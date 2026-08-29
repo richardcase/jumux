@@ -128,6 +128,36 @@ func TestLoadMalformed(t *testing.T) {
 	}
 }
 
+func TestInQuietHours(t *testing.T) {
+	tests := []struct {
+		name       string
+		start, end string
+		hour, min  int
+		want       bool
+	}{
+		{"unset disables quiet hours", "", "", 23, 0, false},
+		{"one bound unset disables quiet hours", "22:00", "", 23, 0, false},
+		{"equal bounds disable quiet hours", "09:00", "09:00", 9, 0, false},
+		{"inside a same-day window", "09:00", "17:00", 12, 0, true},
+		{"before a same-day window", "09:00", "17:00", 8, 59, false},
+		{"at the window start is inside", "09:00", "17:00", 9, 0, true},
+		{"at the window end is outside", "09:00", "17:00", 17, 0, false},
+		{"inside a window wrapping midnight", "22:00", "06:00", 23, 30, true},
+		{"inside a window wrapping midnight after midnight", "22:00", "06:00", 2, 0, true},
+		{"outside a window wrapping midnight", "22:00", "06:00", 12, 0, false},
+		{"unparsable bounds disable quiet hours", "bogus", "17:00", 12, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := Config{NotifyQuietStart: tt.start, NotifyQuietEnd: tt.end}
+			ts := time.Date(2026, 1, 1, tt.hour, tt.min, 0, 0, time.UTC)
+			if got := c.InQuietHours(ts); got != tt.want {
+				t.Errorf("InQuietHours() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAgentCommandSubstitution(t *testing.T) {
 	c := Config{Agent: "claude 'work on {feature}'"}
 	if got := c.AgentCommand("auth", ""); got != "claude 'work on auth'" {
