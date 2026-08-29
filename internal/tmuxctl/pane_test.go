@@ -56,6 +56,29 @@ func TestListAllWindows(t *testing.T) {
 	}
 }
 
+func TestFindGlobalWindow(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "$0\tmain\t@1\tzsh\t\t/home/me\t0\t0\n" +
+			"$1\tother\t@2\trenamed-by-agent\tauth\t/repos/myrepo-auth\t0\t0\n" +
+			"$1\tother\t@3\tbilling\t\t/repos/myrepo-billing\t0\t0", nil
+	}}
+	windows, err := ListAllWindows(fr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Feature tag wins over name, surviving a rename.
+	if w, ok := FindGlobalWindow(windows, "auth", "auth"); !ok || w.ID != "@2" || w.SessionID != "$1" {
+		t.Errorf("feature-tag lookup: got %+v, %v", w, ok)
+	}
+	// Fallback to exact window name when no tag matches.
+	if w, ok := FindGlobalWindow(windows, "billing", "billing"); !ok || w.ID != "@3" {
+		t.Errorf("name fallback: got %+v, %v", w, ok)
+	}
+	if _, ok := FindGlobalWindow(windows, "nope", "nope"); ok {
+		t.Error("unexpected match")
+	}
+}
+
 func TestSplitWindowLeft(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		return "%9", nil
