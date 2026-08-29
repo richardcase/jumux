@@ -87,6 +87,15 @@ func WorkspaceAdd(r run.Runner, mainRoot, name, path, rev string) error {
 	return err
 }
 
+// WorkspaceRename renames the workspace rooted at wsPath to newName, in
+// place: the working-copy commit and directory are untouched. wsPath must
+// be the workspace's own root (the rename applies to "the current
+// workspace" as jj resolves it from the given directory).
+func WorkspaceRename(r run.Runner, wsPath, newName string) error {
+	_, err := r.Run(wsPath, "jj", "workspace", "rename", newName)
+	return err
+}
+
 // WorkspaceForget removes the workspace from the repo (never deletes commits).
 func WorkspaceForget(r run.Runner, mainRoot, name string) error {
 	_, err := r.Run(mainRoot, "jj", "workspace", "forget", name)

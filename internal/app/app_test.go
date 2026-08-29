@@ -367,6 +367,85 @@ func TestRestartUnknownFeature(t *testing.T) {
 	}
 }
 
+func TestRenameHappyPath(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Rename("auth", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t,
+		"jj workspace rename billing",
+		"tmux rename-window -t @2 billing",
+		"tmux set-option -w -t @2 @jumux-feature billing",
+	)
+	if _, err := os.Stat(ws); !os.IsNotExist(err) {
+		t.Error("old workspace dir should no longer exist")
+	}
+	if _, err := os.Stat(f.wsPath("billing")); err != nil {
+		t.Errorf("new workspace dir should exist: %v", err)
+	}
+}
+
+func TestRenameRunsJJInOldWorkspaceDir(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Rename("auth", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range f.runner.Calls {
+		if c.String() == "jj workspace rename billing" && c.Dir != ws {
+			t.Errorf("jj workspace rename ran in %q, want %q", c.Dir, ws)
+		}
+	}
+}
+
+func TestRenameRejectsUnknownOld(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rename("ghost", "billing"); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRenameRejectsExistingNew(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rename("auth", "auth"); err == nil {
+		t.Fatal("expected error for same name")
+	}
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nbilling: mm 33"
+	if err := f.app.Rename("auth", "billing"); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRenameRejectsDefault(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rename("default", "billing"); err == nil || !strings.Contains(err.Error(), "default") {
+		t.Fatalf("got %v", err)
+	}
+	if err := f.app.Rename("auth", "default"); err == nil || !strings.Contains(err.Error(), "default") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRenameWithoutWindowSkipsTmuxRename(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["tmux list-windows"] = "@1\tzsh\t"
+	if err := f.app.Rename("auth", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertNotRan(t, "rename-window")
+}
+
 func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 	f := newFixture(t)
 	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
