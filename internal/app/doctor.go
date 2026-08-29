@@ -14,13 +14,19 @@ type doctorCheck struct {
 	OK          bool
 	Detail      string
 	Remediation string
+	// Advisory marks a check as informational: a failing advisory check is
+	// reported as a warning but does not fail doctor overall.
+	Advisory bool
 }
 
 // Doctor runs a set of preflight checks (jj installed, repo colocated,
-// tmux running, base_revision resolves, Claude Code hooks installed) and
-// prints a pass/fail checklist with remediation for each failure. Checks
-// run independently of one another so a single run gives the fullest
-// diagnostic picture. It returns an error if any check failed.
+// tmux running, base_revision resolves, Claude Code hooks installed, gh/glab
+// installed) and prints a pass/fail/warn checklist with remediation for each
+// failure. Checks run independently of one another so a single run gives the
+// fullest diagnostic picture. The gh and glab checks are advisory: a repo
+// typically only needs one of the two, so a missing binary is reported as a
+// warning and does not fail doctor overall. It returns an error if any
+// non-advisory check failed.
 func (a *App) Doctor() error {
 	var checks []doctorCheck
 	checks = append(checks, a.checkJJInstalled())
@@ -43,14 +49,18 @@ func (a *App) Doctor() error {
 		checks = append(checks, checkColocated(ctx.MainRoot), a.checkBaseRevision(ctx))
 	}
 
-	checks = append(checks, a.checkTmux(), a.checkClaudeHooks())
+	checks = append(checks, a.checkTmux(), a.checkClaudeHooks(), a.checkGH(), a.checkGlab())
 
 	allOK := true
 	for _, c := range checks {
 		status := "PASS"
 		if !c.OK {
-			status = "FAIL"
-			allOK = false
+			if c.Advisory {
+				status = "WARN"
+			} else {
+				status = "FAIL"
+				allOK = false
+			}
 		}
 		line := fmt.Sprintf("[%s] %s", status, c.Name)
 		if c.Detail != "" {
@@ -118,6 +128,32 @@ func (a *App) checkBaseRevision(ctx *repoContext) doctorCheck {
 			Name:        name,
 			Detail:      err.Error(),
 			Remediation: "set base_revision in .jumux.toml or the global config to a revset that resolves in this repo",
+		}
+	}
+	return doctorCheck{Name: name, OK: true}
+}
+
+func (a *App) checkGH() doctorCheck {
+	const name = "gh installed"
+	if _, err := a.Runner.Run("", "gh", "--version"); err != nil {
+		return doctorCheck{
+			Name:        name,
+			Detail:      err.Error(),
+			Remediation: "install the GitHub CLI to use jumux pr: https://cli.github.com",
+			Advisory:    true,
+		}
+	}
+	return doctorCheck{Name: name, OK: true}
+}
+
+func (a *App) checkGlab() doctorCheck {
+	const name = "glab installed"
+	if _, err := a.Runner.Run("", "glab", "--version"); err != nil {
+		return doctorCheck{
+			Name:        name,
+			Detail:      err.Error(),
+			Remediation: "install the GitLab CLI to use jumux mr: https://gitlab.com/gitlab-org/cli",
+			Advisory:    true,
 		}
 	}
 	return doctorCheck{Name: name, OK: true}
