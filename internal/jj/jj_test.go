@@ -106,6 +106,29 @@ func TestIsDirty(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRename(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceRename(fr, "/ws-auth", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	if got := fr.Calls[0].Dir; got != "/ws-auth" {
+		t.Errorf("rename must run inside the workspace, ran in %q", got)
+	}
+	want := "jj workspace rename billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestWorkspaceRenameError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if err := WorkspaceRename(frErr, "/ws-auth", "billing"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func TestBookmarkSet(t *testing.T) {
 	fr := &run.FakeRunner{}
 	err := BookmarkSet(fr, "/repo", "myfeature", "myfeature@")

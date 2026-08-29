@@ -51,6 +51,15 @@ func SendCommand(r run.Runner, windowID, cmd string) error {
 	return err
 }
 
+// RenameWindow renames windowID and re-tags its @jumux-feature option.
+func RenameWindow(r run.Runner, windowID, name, feature string) error {
+	if _, err := r.Run("", "tmux", "rename-window", "-t", windowID, name); err != nil {
+		return err
+	}
+	_, err := r.Run("", "tmux", "set-option", "-w", "-t", windowID, FeatureOption, feature)
+	return err
+}
+
 // SelectWindow switches the client to the window.
 func SelectWindow(r run.Runner, windowID string) error {
 	_, err := r.Run("", "tmux", "select-window", "-t", windowID)
