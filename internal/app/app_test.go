@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/run"
 )
 
@@ -309,6 +310,82 @@ func TestRemoveInfersFeatureFromWindowTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertRan(t, "jj workspace forget auth")
+}
+
+func TestRemoveAllDoneRemovesOnlyDoneFeatures(t *testing.T) {
+	f := newFixture(t)
+	f.app.StateDir = t.TempDir()
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nbilling: bb 33"
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\tauth\tauth\n@3\tbilling\tbilling"
+	if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: "@2", Status: agentstate.Done, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: "@3", Status: agentstate.Working, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.RemoveAllDone(false); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertNotRan(t, "jj workspace forget billing", "tmux kill-window -t @3")
+}
+
+func TestRemoveAllDoneNoneDone(t *testing.T) {
+	f := newFixture(t)
+	f.app.StateDir = t.TempDir()
+	if err := f.app.RemoveAllDone(false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.out.String(), "no done features to remove") {
+		t.Errorf("expected a no-op message, got: %s", f.out.String())
+	}
+	f.assertNotRan(t, "jj workspace forget")
+}
+
+func TestRemoveAllDoneRemovesCurrentFeatureLast(t *testing.T) {
+	f := newFixture(t)
+	f.app.StateDir = t.TempDir()
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nbilling: bb 33"
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\tauth\tauth\n@3\tbilling\tbilling"
+	// Both features are done, and we are "inside" auth's window/tag, which
+	// should be removed last (killing its window ends this process).
+	f.responses["tmux display-message"] = "auth"
+	for _, wid := range []string{"@2", "@3"} {
+		if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: wid, Status: agentstate.Done, UpdatedAt: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.app.RemoveAllDone(false); err != nil {
+		t.Fatal(err)
+	}
+	out := f.out.String()
+	authIdx := strings.Index(out, `removing "auth"`)
+	billingIdx := strings.Index(out, `removing "billing"`)
+	if authIdx < 0 || billingIdx < 0 || authIdx < billingIdx {
+		t.Errorf("expected the current feature (auth) removed last:\n%s", out)
+	}
+}
+
+func TestMoveToEnd(t *testing.T) {
+	tests := []struct {
+		name  string
+		names []string
+		move  string
+		want  []string
+	}{
+		{name: "present in middle", names: []string{"a", "b", "c"}, move: "b", want: []string{"a", "c", "b"}},
+		{name: "already last", names: []string{"a", "b"}, move: "b", want: []string{"a", "b"}},
+		{name: "not present", names: []string{"a", "b"}, move: "z", want: []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := append([]string(nil), tt.names...)
+			moveToEnd(got, tt.move)
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("moveToEnd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestRemoveCannotInfer(t *testing.T) {
