@@ -104,3 +104,20 @@ func IsDirty(r run.Runner, wsPath, name string) (bool, error) {
 	}
 	return strings.Contains(out, "dirty"), nil
 }
+
+// BookmarkSet sets bookmark name to point at rev.
+func BookmarkSet(r run.Runner, dir, name, rev string) error {
+	_, err := r.Run(dir, "jj", "bookmark", "set", name, "-r", rev)
+	return err
+}
+
+// GitPush pushes bookmark to its remote.
+func GitPush(r run.Runner, dir, bookmark string) error {
+	_, err := r.Run(dir, "jj", "git", "push", "--bookmark", bookmark)
+	return err
+}
+
+// Description returns the full change description for rev.
+func Description(r run.Runner, dir, rev string) (string, error) {
+	return r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", "description")
+}
