@@ -45,6 +45,11 @@ Run inside tmux, anywhere in a jj repo (ideally colocated with git):
 Cleanup is idempotent: stale state (directory deleted by hand, window closed,
 etc.) is skipped, and it only errors if nothing at all was found.
 
+`jumux remove --all-done` batch-removes every feature whose most recently
+recorded agent status (see [Agent status icons](#agent-status-icons)) is
+`done`, running the same steps above for each one. If the feature you are
+currently in is among them, it is removed last.
+
 ## What `sidebar` does
 
 Toggles a live agent sidebar, modeled on

@@ -21,6 +21,9 @@ Commands:
                        from config)
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
+  remove [-f] --all-done
+                       remove every feature whose recorded agent status is
+                       "done"
   restart [-f] [name]  restart the configured agent in a feature's tmux
                        window (name defaults to the current feature); asks
                        for confirmation unless the pane looks dead or -f is
@@ -68,12 +71,21 @@ func main() {
 		fs := flag.NewFlagSet("remove", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the dirty working-copy confirmation")
 		fs.BoolVar(force, "f", *force, "shorthand for -force")
+		allDone := fs.Bool("all-done", false, "remove every feature whose recorded agent status is done")
 		_ = fs.Parse(os.Args[2:])
-		if fs.NArg() > 1 {
+		switch {
+		case *allDone:
+			if fs.NArg() != 0 {
+				fmt.Fprintln(os.Stderr, "usage: jumux remove [-f] --all-done")
+				os.Exit(2)
+			}
+			err = a.RemoveAllDone(*force)
+		case fs.NArg() > 1:
 			fmt.Fprintln(os.Stderr, "usage: jumux remove [-f] [name]")
 			os.Exit(2)
+		default:
+			err = a.Remove(fs.Arg(0), *force)
 		}
-		err = a.Remove(fs.Arg(0), *force)
 	case "restart":
 		fs := flag.NewFlagSet("restart", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the alive-pane confirmation")
