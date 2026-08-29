@@ -97,6 +97,76 @@ func (a *App) Remove(name string, force bool) error {
 	return nil
 }
 
+// RemoveAllDone removes every feature whose most recently recorded agent
+// status is "done", reusing Remove's single-feature logic for each one
+// (so the usual dirty-working-copy confirmation and force behavior still
+// apply per feature). If the current feature is among them it is removed
+// last, since killing its own tmux window ends this process.
+func (a *App) RemoveAllDone(force bool) error {
+	if err := a.requireTmux(); err != nil {
+		return err
+	}
+	ctx, err := a.repoContext()
+	if err != nil {
+		return err
+	}
+	names, err := jj.Workspaces(a.Runner, ctx.MainRoot)
+	if err != nil {
+		return err
+	}
+	windows, err := tmuxctl.ListWindows(a.Runner)
+	if err != nil {
+		return err
+	}
+	agent := agentstate.ReadAll(a.StateDir, a.now())
+
+	var done []string
+	for _, name := range names {
+		if name == "default" {
+			continue
+		}
+		win, ok := tmuxctl.FindWindow(windows, name, ctx.Config.WindowPrefix+name)
+		if !ok {
+			continue
+		}
+		if agent[win.ID] == agentstate.Done {
+			done = append(done, name)
+		}
+	}
+	if len(done) == 0 {
+		_, _ = fmt.Fprintln(a.Out, "no done features to remove")
+		return nil
+	}
+	if current, err := a.inferFeature(ctx, names); err == nil {
+		moveToEnd(done, current)
+	}
+
+	var firstErr error
+	for _, name := range done {
+		_, _ = fmt.Fprintf(a.Out, "removing %q (done)\n", name)
+		if err := a.Remove(name, force); err != nil {
+			_, _ = fmt.Fprintf(a.Errw, "removing %q: %v\n", name, err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
+// moveToEnd moves name to the end of names, if present, preserving the
+// relative order of everything else.
+func moveToEnd(names []string, name string) {
+	for i, n := range names {
+		if n != name {
+			continue
+		}
+		copy(names[i:], names[i+1:])
+		names[len(names)-1] = name
+		return
+	}
+}
+
 func (a *App) confirm(prompt string) bool {
 	_, _ = fmt.Fprintf(a.Errw, "%s [y/N] ", prompt)
 	line, err := bufio.NewReader(a.In).ReadString('\n')
