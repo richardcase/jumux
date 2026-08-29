@@ -61,6 +61,7 @@ icon, and a `!` marker when tmux has flagged activity in that window.
 | jj | `✓` (green) | working copy clean |
 | jj | `●` (yellow) | working copy has changes |
 | jj | `?` (dim) | jj state unknown |
+| stale | `z` (dim) | idle beyond `stale_after_hours` (no jj changes or hook updates) |
 
 Keys: `j`/`k` (or arrows) move, `g`/`G` jump to first/last, `Enter` switches
 to the selected feature's window (across sessions), `q` closes the sidebar
@@ -112,6 +113,7 @@ base_revision = "trunk()"   # revset new workspaces are based on
 window_prefix = ""          # prepended to tmux window names
 sidebar_width = 32          # sidebar pane width in columns
 sidebar_refresh = 2         # sidebar refresh interval in seconds
+stale_after_hours = 168     # idle threshold for the stale indicator; 0 disables it
 ```
 
 Example with a starting prompt:

@@ -20,21 +20,23 @@ const RepoFileName = ".jumux.toml"
 const DefaultBaseRevision = "trunk()"
 
 type Config struct {
-	Agent          string `toml:"agent"`
-	SelectWindow   *bool  `toml:"select_window"`
-	BaseRevision   string `toml:"base_revision"`
-	WindowPrefix   string `toml:"window_prefix"`
-	SidebarWidth   int    `toml:"sidebar_width"`
-	SidebarRefresh int    `toml:"sidebar_refresh"`
-	Notify         *bool  `toml:"notify"`
+	Agent           string `toml:"agent"`
+	SelectWindow    *bool  `toml:"select_window"`
+	BaseRevision    string `toml:"base_revision"`
+	WindowPrefix    string `toml:"window_prefix"`
+	SidebarWidth    int    `toml:"sidebar_width"`
+	SidebarRefresh  int    `toml:"sidebar_refresh"`
+	Notify          *bool  `toml:"notify"`
+	StaleAfterHours int    `toml:"stale_after_hours"`
 }
 
 func defaults() Config {
 	return Config{
-		Agent:          "claude",
-		BaseRevision:   DefaultBaseRevision,
-		SidebarWidth:   32,
-		SidebarRefresh: 2,
+		Agent:           "claude",
+		BaseRevision:    DefaultBaseRevision,
+		SidebarWidth:    32,
+		SidebarRefresh:  2,
+		StaleAfterHours: 168, // 7 days
 	}
 }
 
@@ -109,4 +111,15 @@ func (c Config) SidebarRefreshInterval() time.Duration {
 		return 2 * time.Second
 	}
 	return time.Duration(c.SidebarRefresh) * time.Second
+}
+
+// StaleThreshold returns how long a feature may sit idle (no jj changes and
+// no hook status updates) before it is flagged stale, and whether stale
+// detection is enabled at all. Setting stale_after_hours to 0 or below
+// disables it.
+func (c Config) StaleThreshold() (time.Duration, bool) {
+	if c.StaleAfterHours <= 0 {
+		return 0, false
+	}
+	return time.Duration(c.StaleAfterHours) * time.Hour, true
 }

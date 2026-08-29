@@ -121,6 +121,32 @@ func ReadAll(dir string, now time.Time) map[string]Status {
 	return statuses
 }
 
+// LastUpdated returns windowID -> UpdatedAt for every readable entry,
+// regardless of status validity or the "working" TTL — callers use it
+// purely as an activity timestamp (e.g. staleness detection), not a status.
+func LastUpdated(dir string) map[string]time.Time {
+	updated := map[string]time.Time{}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return updated
+	}
+	for _, de := range entries {
+		if de.IsDir() || !strings.HasSuffix(de.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, de.Name()))
+		if err != nil {
+			continue
+		}
+		var e Entry
+		if err := json.Unmarshal(data, &e); err != nil || e.WindowID == "" {
+			continue
+		}
+		updated[e.WindowID] = e.UpdatedAt
+	}
+	return updated
+}
+
 // Remove deletes the entry for a window; a missing entry is not an error.
 func Remove(dir, windowID string) error {
 	err := os.Remove(filepath.Join(dir, fileFor(windowID)))

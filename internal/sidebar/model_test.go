@@ -248,6 +248,30 @@ func TestViewContents(t *testing.T) {
 	}
 }
 
+func TestViewShowsStaleMarker(t *testing.T) {
+	items := testItems()
+	items[1].Stale = true // billing
+	m := newTestModel(items, nil)
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 40, Height: 20})
+	out := m.View()
+	lines := strings.Split(out, "\n")
+	var billing, auth string
+	for _, line := range lines {
+		if strings.Contains(line, "billing") {
+			billing = line
+		}
+		if strings.Contains(line, "myrepo/auth") {
+			auth = line
+		}
+	}
+	if !strings.Contains(billing, "z") {
+		t.Errorf("stale billing row missing marker: %q", billing)
+	}
+	if strings.Contains(auth, "z") {
+		t.Errorf("non-stale auth row should not have marker: %q", auth)
+	}
+}
+
 func TestViewConfirmingShowsPrompt(t *testing.T) {
 	m := newTestModel(testItems(), nil)
 	m, _ = update(t, m, key("d"))
@@ -259,7 +283,7 @@ func TestViewConfirmingShowsPrompt(t *testing.T) {
 
 func TestViewIconWidths(t *testing.T) {
 	// The row width math assumes every icon is one column wide.
-	glyphs := append([]string{"✓", "●", "?", "·", "!", "▸"}, spinnerFrames...)
+	glyphs := append([]string{"✓", "●", "?", "·", "!", "▸", "z"}, spinnerFrames...)
 	for _, g := range glyphs {
 		if w := lipgloss.Width(g); w != 1 {
 			t.Errorf("glyph %q has width %d, want 1", g, w)
