@@ -104,3 +104,85 @@ func TestIsDirty(t *testing.T) {
 		t.Errorf("dirty check must run inside the workspace, ran in %q", got)
 	}
 }
+
+func TestBookmarkSet(t *testing.T) {
+	fr := &run.FakeRunner{}
+	err := BookmarkSet(fr, "/repo", "myfeature", "myfeature@")
+	if err != nil {
+		t.Fatalf("BookmarkSet() error = %v", err)
+	}
+	want := "jj bookmark set myfeature -r myfeature@\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestBookmarkSetError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if err := BookmarkSet(frErr, "/repo", "myfeature", "myfeature@"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestGitPush(t *testing.T) {
+	fr := &run.FakeRunner{}
+	err := GitPush(fr, "/repo", "myfeature")
+	if err != nil {
+		t.Fatalf("GitPush() error = %v", err)
+	}
+	want := "jj git push --bookmark myfeature\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestGitPushError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if err := GitPush(frErr, "/repo", "myfeature"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestDescription(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "Add widget support\n\nThis adds widgets.", nil
+	}}
+	got, err := Description(fr, "/repo", "myfeature@")
+	if err != nil {
+		t.Fatalf("Description() error = %v", err)
+	}
+	want := "Add widget support\n\nThis adds widgets."
+	if got != want {
+		t.Errorf("Description() = %q, want %q", got, want)
+	}
+	wantCmd := "jj log -r myfeature@ --no-graph -T description\n"
+	if got := fr.CommandLines(); got != wantCmd {
+		t.Errorf("CommandLines() = %q, want %q", got, wantCmd)
+	}
+}
+
+func TestDescriptionEmpty(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", nil
+	}}
+	got, err := Description(fr, "/repo", "myfeature@")
+	if err != nil {
+		t.Fatalf("Description() error = %v", err)
+	}
+	if got != "" {
+		t.Errorf("Description() = %q, want empty", got)
+	}
+}
+
+func TestDescriptionError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if _, err := Description(frErr, "/repo", "myfeature@"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
