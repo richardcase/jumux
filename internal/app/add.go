@@ -15,8 +15,11 @@ const fallbackBaseRevision = "@-"
 
 // Add creates a jj workspace for feature, opens a tmux window in it, and
 // starts the configured agent. If agentOverride is non-empty it replaces
-// the configured agent command for this feature only.
-func (a *App) Add(feature, agentOverride string) error {
+// the configured agent command for this feature only. If template is
+// non-empty, the named template's base_revision/agent/window options
+// (from config) are applied over the repo/global config before
+// agentOverride is considered.
+func (a *App) Add(feature, agentOverride, template string) error {
 	if err := validFeatureName(feature); err != nil {
 		return err
 	}
@@ -25,6 +28,9 @@ func (a *App) Add(feature, agentOverride string) error {
 	}
 	ctx, err := a.repoContext()
 	if err != nil {
+		return err
+	}
+	if ctx.Config, err = ctx.Config.WithTemplate(template); err != nil {
 		return err
 	}
 	a.ensureClaudeHooks()

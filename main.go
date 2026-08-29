@@ -13,10 +13,12 @@ import (
 const usage = `Usage: jumux <command> [args]
 
 Commands:
-  add [-a AGENT] <feature>
+  add [-a AGENT] [-t TEMPLATE] <feature>
                        create a jj workspace + tmux window and start the
                        agent (-a/--agent overrides the configured agent
-                       command for this feature)
+                       command for this feature; -t/--template applies a
+                       named template's base_revision/agent/window options
+                       from config)
   remove [-f] [name]   remove a feature's workspace, directory, and window
                        (name defaults to the current feature)
   restart [-f] [name]  restart the configured agent in a feature's tmux
@@ -54,12 +56,14 @@ func main() {
 		fs := flag.NewFlagSet("add", flag.ExitOnError)
 		agent := fs.String("agent", "", "override the configured agent command for this feature")
 		fs.StringVar(agent, "a", *agent, "shorthand for -agent")
+		template := fs.String("template", "", "apply a named template's base_revision/agent/window options")
+		fs.StringVar(template, "t", *template, "shorthand for -template")
 		_ = fs.Parse(os.Args[2:])
 		if fs.NArg() != 1 {
-			fmt.Fprintln(os.Stderr, "usage: jumux add [-a AGENT|--agent AGENT] <feature>")
+			fmt.Fprintln(os.Stderr, "usage: jumux add [-a AGENT|--agent AGENT] [-t TEMPLATE|--template TEMPLATE] <feature>")
 			os.Exit(2)
 		}
-		err = a.Add(fs.Arg(0), *agent)
+		err = a.Add(fs.Arg(0), *agent, *template)
 	case "remove":
 		fs := flag.NewFlagSet("remove", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the dirty working-copy confirmation")
