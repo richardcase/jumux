@@ -1,7 +1,10 @@
 package notify
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/richardcase/jumux/internal/run"
@@ -60,6 +63,41 @@ func TestSend(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSendWebhook(t *testing.T) {
+	var got WebhookPayload
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	if err := SendWebhook(server.Client(), server.URL, "jumux: auth", "waiting"); err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "jumux: auth" || got.Message != "waiting" {
+		t.Errorf("unexpected payload: %+v", got)
+	}
+}
+
+func TestSendWebhookErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	if err := SendWebhook(server.Client(), server.URL, "title", "msg"); err == nil {
+		t.Fatal("expected an error for a 500 response")
+	}
+}
+
+func TestSendWebhookConnectionError(t *testing.T) {
+	if err := SendWebhook(nil, "http://127.0.0.1:0", "title", "msg"); err == nil {
+		t.Fatal("expected a connection error")
 	}
 }
 

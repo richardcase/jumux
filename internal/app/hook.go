@@ -54,13 +54,24 @@ func (a *App) maybeNotify(feature string, prev, next agentstate.Status) {
 		return
 	}
 	notifyEnabled := true
+	webhook := ""
 	if rc, err := a.repoContext(); err == nil {
 		notifyEnabled = rc.Config.NotifyEnabled()
+		if rc.Config.InQuietHours(a.now()) {
+			return
+		}
+		webhook = rc.Config.NotifyWebhook
 	}
 	if !notifyEnabled {
 		return
 	}
-	if err := notify.Send(a.Runner, "jumux: "+feature, string(next)); err != nil {
+	title, message := "jumux: "+feature, string(next)
+	if err := notify.Send(a.Runner, title, message); err != nil {
 		_, _ = fmt.Fprintf(a.Errw, "jumux hook: notify: %v\n", err)
+	}
+	if webhook != "" {
+		if err := notify.SendWebhook(a.HTTPClient, webhook, title, message); err != nil {
+			_, _ = fmt.Fprintf(a.Errw, "jumux hook: notify: %v\n", err)
+		}
 	}
 }

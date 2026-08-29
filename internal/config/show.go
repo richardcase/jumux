@@ -85,6 +85,9 @@ func Show(globalPath, repoRoot string) (Config, []Field, error) {
 		{"sidebar_refresh", cfg.SidebarRefreshInterval().String(), source("sidebar_refresh")},
 		{"notify", strconv.FormatBool(cfg.NotifyEnabled()), source("notify")},
 		{"stale_after_hours", strconv.Itoa(cfg.StaleAfterHours), source("stale_after_hours")},
+		{"notify_quiet_start", cfg.NotifyQuietStart, source("notify_quiet_start")},
+		{"notify_quiet_end", cfg.NotifyQuietEnd, source("notify_quiet_end")},
+		{"notify_webhook", cfg.NotifyWebhook, source("notify_webhook")},
 	}
 	return cfg, fields, nil
 }

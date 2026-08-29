@@ -1,10 +1,14 @@
-// Package notify sends OS desktop notifications. It knows nothing about jj
-// or tmux: callers pass a command runner, so notifications are testable
-// without shelling out for real.
+// Package notify sends OS desktop notifications and, optionally, webhook
+// notifications. Desktop notifications go through a command runner, and
+// webhooks through an injectable *http.Client, so both are testable
+// without touching the real OS or network.
 package notify
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"runtime"
 
 	"github.com/richardcase/jumux/internal/run"
@@ -29,4 +33,33 @@ func send(runner run.Runner, goos, title, message string) error {
 	default:
 		return nil
 	}
+}
+
+// WebhookPayload is the JSON body POSTed to a configured notify_webhook
+// URL.
+type WebhookPayload struct {
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
+
+// SendWebhook POSTs a JSON notification payload to url using client (a nil
+// client uses http.DefaultClient). It errors if the request fails or the
+// server responds with a non-2xx/3xx status.
+func SendWebhook(client *http.Client, url, title, message string) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	body, err := json.Marshal(WebhookPayload{Title: title, Message: message})
+	if err != nil {
+		return err
+	}
+	resp, err := client.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("webhook %s: %w", url, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("webhook %s: status %s", url, resp.Status)
+	}
+	return nil
 }
