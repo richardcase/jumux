@@ -30,6 +30,8 @@ Commands:
                        Claude Code hooks
   doctor               check the environment (jj, tmux, base_revision,
                        Claude Code hooks) and print a pass/fail checklist
+  config show          print the effective merged config and which file
+                       (global, repo, or default) each value came from
 
 Config: ~/.config/jumux/config.toml, overridden per-repo by .jumux.toml
 `
@@ -111,6 +113,12 @@ func main() {
 		err = a.Hook(os.Args[2])
 	case "doctor":
 		err = a.Doctor()
+	case "config":
+		if len(os.Args) != 3 || os.Args[2] != "show" {
+			fmt.Fprintln(os.Stderr, "usage: jumux config show")
+			os.Exit(2)
+		}
+		err = a.ConfigShow()
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
