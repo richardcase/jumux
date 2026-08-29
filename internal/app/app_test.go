@@ -446,6 +446,45 @@ func TestRenameWithoutWindowSkipsTmuxRename(t *testing.T) {
 	f.assertNotRan(t, "rename-window")
 }
 
+// withGlobalWindows overrides the fake runner so "tmux list-windows -a"
+// (used by Attach/sidebar) answers separately from the session-scoped
+// "tmux list-windows" (used by Add/Remove/Restart/Rename), since both share
+// the "tmux list-windows" prefix but need different column shapes.
+func (f *fixture) withGlobalWindows(out string) {
+	base := f.runner.Handler
+	f.runner.Handler = func(dir, name string, args ...string) (string, error) {
+		if name == "tmux" && len(args) > 0 && args[0] == "list-windows" && strings.Contains(strings.Join(args, " "), "-a") {
+			return out, nil
+		}
+		return base(dir, name, args...)
+	}
+}
+
+func TestAttachSwitchesToFeatureWindow(t *testing.T) {
+	f := newFixture(t)
+	f.withGlobalWindows("$0\tmain\t@1\tzsh\t\t/home/me\t0\t0\n" +
+		"$1\tother\t@2\tauth\tauth\t/repos/myrepo-auth\t0\t0")
+	if err := f.app.Attach("auth"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "tmux select-window -t @2", "tmux switch-client -t $1")
+}
+
+func TestAttachUnknownFeature(t *testing.T) {
+	f := newFixture(t)
+	f.withGlobalWindows("$0\tmain\t@1\tzsh\t\t/home/me\t0\t0")
+	if err := f.app.Attach("ghost"); err == nil || !strings.Contains(err.Error(), "no tmux window found") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestAttachRejectsInvalidName(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Attach("bad name!"); err == nil {
+		t.Error("expected invalid-name error")
+	}
+}
+
 func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 	f := newFixture(t)
 	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {

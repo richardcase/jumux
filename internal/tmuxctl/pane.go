@@ -86,6 +86,22 @@ func ListAllWindows(r run.Runner) ([]GlobalWindow, error) {
 	return windows, nil
 }
 
+// FindGlobalWindow locates a window for a feature across every session:
+// first by the @jumux-feature option, then by exact window name.
+func FindGlobalWindow(windows []GlobalWindow, feature, windowName string) (GlobalWindow, bool) {
+	for _, w := range windows {
+		if w.Feature == feature {
+			return w, true
+		}
+	}
+	for _, w := range windows {
+		if w.Name == windowName {
+			return w, true
+		}
+	}
+	return GlobalWindow{}, false
+}
+
 // SplitWindowLeft creates a pane on the left edge of the window running cmd,
 // without stealing focus, and returns the new pane's ID.
 func SplitWindowLeft(r run.Runner, windowID, dir string, width int, cmd ...string) (string, error) {
