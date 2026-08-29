@@ -114,6 +114,89 @@ func TestAgentCommandSubstitution(t *testing.T) {
 	}
 }
 
+func TestWithTemplateAppliesOverrides(t *testing.T) {
+	falseVal := false
+	c := Config{
+		Agent:        "claude",
+		BaseRevision: "trunk()",
+		WindowPrefix: "",
+		Templates: map[string]Template{
+			"bugfix": {
+				Agent:        "claude 'fix {feature}'",
+				BaseRevision: "main",
+				SelectWindow: &falseVal,
+				WindowPrefix: "bug-",
+			},
+		},
+	}
+	out, err := c.WithTemplate("bugfix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Agent != "claude 'fix {feature}'" || out.BaseRevision != "main" || out.WindowPrefix != "bug-" {
+		t.Errorf("unexpected result: %+v", out)
+	}
+	if out.SelectWindowEnabled() {
+		t.Error("template's select_window=false should apply")
+	}
+}
+
+func TestWithTemplateEmptyNameIsNoOp(t *testing.T) {
+	c := Config{Agent: "claude"}
+	out, err := c.WithTemplate("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Agent != "claude" {
+		t.Errorf("unexpected result: %+v", out)
+	}
+}
+
+func TestWithTemplateUnknownErrors(t *testing.T) {
+	c := Config{}
+	if _, err := c.WithTemplate("nope"); err == nil {
+		t.Fatal("expected an error for an unknown template")
+	}
+}
+
+func TestWithTemplateLeavesUnsetFieldsAlone(t *testing.T) {
+	c := Config{
+		Agent:        "claude",
+		BaseRevision: "trunk()",
+		WindowPrefix: "g-",
+		Templates: map[string]Template{
+			"bugfix": {BaseRevision: "main"},
+		},
+	}
+	out, err := c.WithTemplate("bugfix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Agent != "claude" || out.WindowPrefix != "g-" {
+		t.Errorf("unset template fields should not override base config: %+v", out)
+	}
+	if out.BaseRevision != "main" {
+		t.Errorf("template base_revision should apply, got %q", out.BaseRevision)
+	}
+}
+
+func TestLoadParsesTemplates(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "[templates.bugfix]\nagent = \"claude fix\"\nbase_revision = \"main\"\n")
+	cfg, err := Load(global, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl, ok := cfg.Templates["bugfix"]
+	if !ok {
+		t.Fatal("expected bugfix template to be loaded")
+	}
+	if tmpl.Agent != "claude fix" || tmpl.BaseRevision != "main" {
+		t.Errorf("unexpected template: %+v", tmpl)
+	}
+}
+
 func TestAgentCommandOverride(t *testing.T) {
 	c := Config{Agent: "claude"}
 	if got := c.AgentCommand("auth", "aider 'work on {feature}'"); got != "aider 'work on auth'" {

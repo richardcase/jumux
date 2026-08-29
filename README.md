@@ -6,6 +6,7 @@ feature.
 
 ```
 jumux add <feature>       create a jj workspace + tmux window, start the agent
+                          (-a/--agent overrides the agent; -t/--template applies a preset)
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
 jumux list                show feature workspaces and their tmux windows
 jumux pr [feature]        push the feature's bookmark and open a GitHub PR
@@ -136,6 +137,25 @@ fallback and its warning.
 Note on colocation: depending on your jj version, secondary workspaces may
 not contain a `.git` directory even when the main repo is colocated, so
 agents should use `jj` commands inside the workspace.
+
+### Templates
+
+Named templates bundle a `base_revision`/`agent`/window-option preset for a
+recurring kind of feature, selectable with `jumux add --template <name>`
+(`-t` for short):
+
+```toml
+[templates.bugfix]
+base_revision = "main"
+agent = "claude 'fix the {feature} bug'"
+window_prefix = "bug-"
+```
+
+Only the fields set in the template override the base config; anything
+left unset falls through to the regular `agent`/`base_revision`/etc.
+values. `-a`/`--agent` still wins over a template's `agent` if both are
+given. A template defined in `.jumux.toml` fully replaces a global
+template of the same name (its fields are not merged individually).
 
 ## Install
 

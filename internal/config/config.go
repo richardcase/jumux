@@ -27,6 +27,21 @@ type Config struct {
 	SidebarWidth   int    `toml:"sidebar_width"`
 	SidebarRefresh int    `toml:"sidebar_refresh"`
 	Notify         *bool  `toml:"notify"`
+	// Templates are named presets bundling base_revision/agent/window
+	// options for a recurring kind of feature, selected via
+	// `jumux add --template <name>`. A template defined in the repo file
+	// fully replaces a global template of the same name (fields are not
+	// merged individually across files).
+	Templates map[string]Template `toml:"templates"`
+}
+
+// Template bundles overrides for a named preset combination of
+// base_revision, agent, and window options.
+type Template struct {
+	Agent        string `toml:"agent"`
+	BaseRevision string `toml:"base_revision"`
+	SelectWindow *bool  `toml:"select_window"`
+	WindowPrefix string `toml:"window_prefix"`
 }
 
 func defaults() Config {
@@ -93,6 +108,34 @@ func (c Config) SelectWindowEnabled() bool {
 // desktop notification (default true).
 func (c Config) NotifyEnabled() bool {
 	return c.Notify == nil || *c.Notify
+}
+
+// WithTemplate returns a copy of c with the named template's non-zero
+// fields applied over the base config (agent, base_revision,
+// select_window, window_prefix). An empty name is a no-op and returns c
+// unchanged. It errors if name is non-empty but no such template exists.
+func (c Config) WithTemplate(name string) (Config, error) {
+	if name == "" {
+		return c, nil
+	}
+	t, ok := c.Templates[name]
+	if !ok {
+		return Config{}, fmt.Errorf("unknown template %q", name)
+	}
+	out := c
+	if t.Agent != "" {
+		out.Agent = t.Agent
+	}
+	if t.BaseRevision != "" {
+		out.BaseRevision = t.BaseRevision
+	}
+	if t.SelectWindow != nil {
+		out.SelectWindow = t.SelectWindow
+	}
+	if t.WindowPrefix != "" {
+		out.WindowPrefix = t.WindowPrefix
+	}
+	return out, nil
 }
 
 // SidebarWidthCols returns the sidebar pane width in columns (default 32).
