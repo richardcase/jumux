@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/richardcase/jumux/internal/agentstate"
@@ -96,23 +95,6 @@ func (a *App) Remove(name string, force bool) error {
 		}
 	}
 	return nil
-}
-
-// inferFeature determines the current feature: if cwd is inside a
-// non-default workspace whose name matches the sibling-dir convention, use
-// it; otherwise fall back to the current window's @jumux-feature tag.
-func (a *App) inferFeature(ctx *repoContext, names []string) (string, error) {
-	if ctx.WsRoot != ctx.MainRoot {
-		base := filepath.Base(ctx.WsRoot)
-		prefix := filepath.Base(ctx.MainRoot) + "-"
-		if feature := strings.TrimPrefix(base, prefix); feature != base && contains(names, feature) {
-			return feature, nil
-		}
-	}
-	if feature, err := tmuxctl.CurrentWindowFeature(a.Runner); err == nil && feature != "" {
-		return feature, nil
-	}
-	return "", fmt.Errorf("cannot infer the current feature; run from a feature workspace/window or pass a name")
 }
 
 func (a *App) confirm(prompt string) bool {
