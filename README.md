@@ -21,6 +21,37 @@ jumux doctor              check the environment and report problems to fix
 jumux config show         print the effective config and where each value came from
 ```
 
+## Quickstart
+
+1. **Prerequisites**: tmux, and a [jujutsu](https://github.com/jj-vcs/jj) repo
+   (ideally colocated with git — `jj git init --colocate` in an existing git
+   repo, or `jj git init` for a new one).
+2. **Install jumux**:
+   ```
+   go install github.com/richardcase/jumux@latest
+   ```
+3. **Start tmux and run jumux inside the repo**:
+   ```
+   jumux add my-feature
+   ```
+   This creates a jj workspace, opens a tmux window for it, and starts the
+   agent (see [What `add` does](#what-add-does)). The first run offers to
+   install [Claude Code hooks](#agent-status-icons) for agent status
+   tracking.
+4. **Check on your features** from any window:
+   ```
+   jumux list
+   jumux sidebar
+   ```
+5. **Ship the work** once the agent is done:
+   ```
+   jumux pr my-feature   # or: jumux mr my-feature
+   ```
+6. **Clean up** the workspace and tmux window:
+   ```
+   jumux remove my-feature
+   ```
+
 ## What `add` does
 
 Run inside tmux, anywhere in a jj repo (ideally colocated with git):
