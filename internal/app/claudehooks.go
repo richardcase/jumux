@@ -138,14 +138,7 @@ func missingClaudeHookEvents(settingsPath string) ([]hookEvent, error) {
 // missingHookEvents returns the hook events with no entry, scoped to the
 // right matcher, whose command invokes `jumux hook`.
 func missingHookEvents(hooks map[string]json.RawMessage) []hookEvent {
-	var missing []hookEvent
-	for _, he := range hookEvents {
-		if hasJumuxHook(hooks[he.Event], he.Matcher) {
-			continue
-		}
-		missing = append(missing, he)
-	}
-	return missing
+	return missingHookEventsFrom(hooks, hookEvents)
 }
 
 // hasJumuxHook reports whether raw (an event's hook entry array) already

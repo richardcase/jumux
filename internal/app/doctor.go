@@ -50,7 +50,7 @@ func (a *App) Doctor() error {
 		checks = append(checks, checkColocated(ctx.MainRoot), a.checkBaseRevision(ctx))
 	}
 
-	checks = append(checks, a.checkTmux(), a.checkClaudeHooks(), a.checkGH(), a.checkGlab())
+	checks = append(checks, a.checkTmux(), a.checkClaudeHooks(), a.checkCodexHooks(), a.checkGH(), a.checkGlab())
 
 	allOK := true
 	for _, c := range checks {
@@ -185,6 +185,36 @@ func (a *App) checkClaudeHooks() doctorCheck {
 			Name:        name,
 			Detail:      "missing: " + strings.Join(events, ", "),
 			Remediation: "run `jumux add` in a repo to be offered the hook install, or add them to " + a.ClaudeSettings + " manually",
+		}
+	}
+	return doctorCheck{Name: name, OK: true}
+}
+
+func (a *App) checkCodexHooks() doctorCheck {
+	const name = "Codex hooks installed"
+	if a.CodexSettings == "" {
+		return doctorCheck{Name: name, Detail: "no Codex hooks path configured"}
+	}
+	missing, err := missingCodexHookEvents(a.CodexSettings)
+	if err != nil {
+		return doctorCheck{
+			Name:        name,
+			Detail:      err.Error(),
+			Remediation: "fix " + a.CodexSettings,
+		}
+	}
+	if len(missing) > 0 {
+		events := make([]string, len(missing))
+		for i, he := range missing {
+			events[i] = he.Event
+			if he.Matcher != "" {
+				events[i] += " (" + he.Matcher + ")"
+			}
+		}
+		return doctorCheck{
+			Name:        name,
+			Detail:      "missing: " + strings.Join(events, ", "),
+			Remediation: "run `jumux add` in a repo to be offered the hook install, or add them to " + a.CodexSettings + " manually",
 		}
 	}
 	return doctorCheck{Name: name, OK: true}

@@ -38,7 +38,10 @@ type App struct {
 	// ClaudeSettings is the path to the Claude Code settings file where Add
 	// offers to install the status hooks ("" to skip the offer).
 	ClaudeSettings string
-	Now            func() time.Time
+	// CodexSettings is the path to the Codex hooks file where Add offers to
+	// install the status hooks ("" to skip the offer).
+	CodexSettings string
+	Now           func() time.Time
 	// HTTPClient is used to send webhook notifications (notify_webhook).
 	HTTPClient *http.Client
 }
@@ -61,6 +64,13 @@ func New() *App {
 				return ""
 			}
 			return filepath.Join(home, ".claude", "settings.json")
+		}(),
+		CodexSettings: func() string {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return ""
+			}
+			return filepath.Join(home, ".codex", "hooks.json")
 		}(),
 		Now:        time.Now,
 		HTTPClient: http.DefaultClient,

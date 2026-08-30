@@ -51,6 +51,16 @@ func TestDoctorAllPass(t *testing.T) {
 	if err := os.WriteFile(settingsPath, []byte(settingsJSON), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	codexSettingsPath := filepath.Join(t.TempDir(), "hooks.json")
+	codexSettingsJSON := `{"hooks":{
+		"UserPromptSubmit":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
+		"PostToolUse":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
+		"PermissionRequest":[{"hooks":[{"type":"command","command":"jumux hook blocked"}]}],
+		"Stop":[{"hooks":[{"type":"command","command":"jumux hook done"}]}]
+	}}`
+	if err := os.WriteFile(codexSettingsPath, []byte(codexSettingsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		cmd := name + " " + strings.Join(args, " ")
@@ -78,6 +88,7 @@ func TestDoctorAllPass(t *testing.T) {
 		Getwd:          func() (string, error) { return mainRoot, nil },
 		Getenv:         tmuxEnv(true),
 		ClaudeSettings: settingsPath,
+		CodexSettings:  codexSettingsPath,
 	}
 	if err := a.Doctor(); err != nil {
 		t.Fatalf("got %v, want nil.\noutput:\n%s", err, out.String())
@@ -96,6 +107,7 @@ func TestDoctorAllPass(t *testing.T) {
 func TestDoctorReportsFailures(t *testing.T) {
 	mainRoot := doctorFixture(t, false) // not colocated: no .git
 	settingsPath := filepath.Join(t.TempDir(), "missing-settings.json")
+	codexSettingsPath := filepath.Join(t.TempDir(), "missing-hooks.json")
 
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		cmd := name + " " + strings.Join(args, " ")
@@ -123,6 +135,7 @@ func TestDoctorReportsFailures(t *testing.T) {
 		Getwd:          func() (string, error) { return mainRoot, nil },
 		Getenv:         tmuxEnv(false),
 		ClaudeSettings: settingsPath,
+		CodexSettings:  codexSettingsPath,
 	}
 	err := a.Doctor()
 	if err == nil {
@@ -135,6 +148,7 @@ func TestDoctorReportsFailures(t *testing.T) {
 		"[FAIL] tmux running",
 		"[FAIL] base_revision",
 		"[FAIL] Claude Code hooks installed — missing: UserPromptSubmit, PostToolUse, Notification (permission_prompt), Notification (idle_prompt), PostToolUseFailure, Stop",
+		"[FAIL] Codex hooks installed — missing: UserPromptSubmit, PostToolUse, PermissionRequest, Stop",
 		"[WARN] gh installed",
 		"[WARN] glab installed",
 	} {
@@ -163,6 +177,16 @@ func TestDoctorGHGlabAdvisory(t *testing.T) {
 		"Stop":[{"hooks":[{"type":"command","command":"jumux hook done"}]}]
 	}}`
 	if err := os.WriteFile(settingsPath, []byte(settingsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	codexSettingsPath := filepath.Join(t.TempDir(), "hooks.json")
+	codexSettingsJSON := `{"hooks":{
+		"UserPromptSubmit":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
+		"PostToolUse":[{"hooks":[{"type":"command","command":"jumux hook working"}]}],
+		"PermissionRequest":[{"hooks":[{"type":"command","command":"jumux hook blocked"}]}],
+		"Stop":[{"hooks":[{"type":"command","command":"jumux hook done"}]}]
+	}}`
+	if err := os.WriteFile(codexSettingsPath, []byte(codexSettingsJSON), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -228,6 +252,7 @@ func TestDoctorGHGlabAdvisory(t *testing.T) {
 				Getwd:          func() (string, error) { return mainRoot, nil },
 				Getenv:         tmuxEnv(true),
 				ClaudeSettings: settingsPath,
+				CodexSettings:  codexSettingsPath,
 			}
 			if err := a.Doctor(); err != nil {
 				t.Fatalf("got %v, want nil: doctor must still pass when gh/glab are missing.\noutput:\n%s", err, out.String())
