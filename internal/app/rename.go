@@ -8,7 +8,7 @@ import (
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
-// Rename renames a feature in place: the jj workspace, its sibling
+// Rename renames a feature in place: the jj workspace, its data
 // directory, and its tmux window are all renamed from oldName to newName.
 // The working-copy commit is untouched and the agent is not restarted.
 func (a *App) Rename(oldName, newName string) error {
@@ -43,8 +43,8 @@ func (a *App) Rename(oldName, newName string) error {
 		return fmt.Errorf("workspace %q already exists", newName)
 	}
 
-	oldPath := workspacePath(ctx.MainRoot, oldName)
-	newPath := workspacePath(ctx.MainRoot, newName)
+	oldPath := a.workspacePath(ctx.MainRoot, oldName)
+	newPath := a.workspacePath(ctx.MainRoot, newName)
 	if _, err := os.Stat(newPath); err == nil {
 		return fmt.Errorf("directory %s already exists", newPath)
 	}

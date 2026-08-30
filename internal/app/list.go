@@ -50,7 +50,7 @@ func (a *App) List() error {
 			continue
 		}
 		count++
-		wsPath := workspacePath(ctx.MainRoot, name)
+		wsPath := a.workspacePath(ctx.MainRoot, name)
 		status := "clean"
 		wsExists := true
 		if _, err := os.Stat(wsPath); err != nil {

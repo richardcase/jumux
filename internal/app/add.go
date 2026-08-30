@@ -38,7 +38,7 @@ func (a *App) Add(feature, agentOverride, template string) error {
 		_, _ = fmt.Fprintf(a.Errw, "warning: %s is not a colocated jj repo; git tooling will not work in the workspace\n", ctx.MainRoot)
 	}
 
-	wsPath := workspacePath(ctx.MainRoot, feature)
+	wsPath := a.workspacePath(ctx.MainRoot, feature)
 	windowName := ctx.Config.WindowPrefix + feature
 
 	// Pre-flight checks for friendly errors.
