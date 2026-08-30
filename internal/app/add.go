@@ -34,6 +34,7 @@ func (a *App) Add(feature, agentOverride, template string) error {
 		return err
 	}
 	a.ensureClaudeHooks()
+	a.ensureCodexHooks()
 	if !jj.IsColocated(ctx.MainRoot) {
 		_, _ = fmt.Fprintf(a.Errw, "warning: %s is not a colocated jj repo; git tooling will not work in the workspace\n", ctx.MainRoot)
 	}

@@ -40,8 +40,8 @@ jumux config show         print the effective config and where each value came f
    ```
    This creates a jj workspace, opens a tmux window for it, and starts the
    agent (see [What `add` does](#what-add-does)). The first run offers to
-   install [Claude Code hooks](#agent-status-icons) for agent status
-   tracking.
+   install [Claude Code and Codex hooks](#agent-status-icons) for agent
+   status tracking.
 4. **Check on your features** from any window:
    ```
    jumux list
@@ -144,6 +144,26 @@ hooks into `~/.claude/settings.json`; to set them up by hand, add:
 
 (`PostToolUse` flips the status back to working after a permission approval;
 without it a row would stay "waiting" until the turn ends.)
+
+The same command also works with [Codex CLI
+hooks](https://developers.openai.com/codex/hooks). The first `jumux add`
+offers to install them into `~/.codex/hooks.json`; to set them up by hand,
+add:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "jumux hook working" }] }],
+    "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "jumux hook working" }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "jumux hook blocked" }] }],
+    "Stop":              [{ "hooks": [{ "type": "command", "command": "jumux hook done" }] }]
+  }
+}
+```
+
+Codex has no hook event equivalent to Claude Code's idle notification or a
+tool-use-failure event, so status never reaches `waiting` or `error` for a
+Codex-driven feature.
 
 `jumux hook` resolves the calling pane's window via `$TMUX_PANE` and
 writes a small state file under `~/.local/state/jumux/status/` (or
