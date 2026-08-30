@@ -30,6 +30,7 @@ type fixture struct {
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	tmp := t.TempDir()
+	home := t.TempDir()
 	mainRoot := filepath.Join(tmp, "myrepo")
 	for _, d := range []string{filepath.Join(mainRoot, ".jj", "repo"), filepath.Join(mainRoot, ".git")} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -68,8 +69,11 @@ func newFixture(t *testing.T) *fixture {
 		In:     strings.NewReader(""),
 		Getwd:  func() (string, error) { return mainRoot, nil },
 		Getenv: func(k string) string {
-			if k == "TMUX" {
+			switch k {
+			case "TMUX":
 				return "/tmp/tmux-1/default,123,0"
+			case "HOME":
+				return home
 			}
 			return ""
 		},
@@ -78,7 +82,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func (f *fixture) wsPath(feature string) string {
-	return filepath.Join(filepath.Dir(f.mainRoot), "myrepo-"+feature)
+	return filepath.Join(f.app.Getenv("HOME"), ".local", "share", "jumux", "workspaces", "myrepo", feature)
 }
 
 func (f *fixture) assertRan(t *testing.T, substrings ...string) {

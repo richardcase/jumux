@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/richardcase/jumux/internal/agentstate"
@@ -110,20 +109,28 @@ func (a *App) repoContext() (*repoContext, error) {
 	return &repoContext{MainRoot: mainRoot, WsRoot: wsRoot, Config: cfg}, nil
 }
 
-// workspacePath returns the conventional sibling directory for a feature:
-// ../<mainRepoDir>-<feature>.
-func workspacePath(mainRoot, feature string) string {
-	return filepath.Join(filepath.Dir(mainRoot), filepath.Base(mainRoot)+"-"+feature)
+// baseDataDir resolves $XDG_DATA_HOME, falling back to ~/.local/share.
+func baseDataDir(getenv func(string) string) string {
+	base := getenv("XDG_DATA_HOME")
+	if base == "" {
+		base = filepath.Join(getenv("HOME"), ".local", "share")
+	}
+	return base
+}
+
+// workspacePath returns the workspace directory for a feature:
+// $XDG_DATA_HOME/jumux/workspaces/<repo>/<feature>, falling back to
+// ~/.local/share/jumux/workspaces/<repo>/<feature>.
+func (a *App) workspacePath(mainRoot, feature string) string {
+	return filepath.Join(baseDataDir(a.Getenv), "jumux", "workspaces", filepath.Base(mainRoot), feature)
 }
 
 // inferFeature determines the current feature: if cwd is inside a
-// non-default workspace whose name matches the sibling-dir convention, use
+// non-default workspace whose directory name matches a known feature, use
 // it; otherwise fall back to the current window's @jumux-feature tag.
 func (a *App) inferFeature(ctx *repoContext, names []string) (string, error) {
 	if ctx.WsRoot != ctx.MainRoot {
-		base := filepath.Base(ctx.WsRoot)
-		prefix := filepath.Base(ctx.MainRoot) + "-"
-		if feature := strings.TrimPrefix(base, prefix); feature != base && contains(names, feature) {
+		if feature := filepath.Base(ctx.WsRoot); contains(names, feature) {
 			return feature, nil
 		}
 	}

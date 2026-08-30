@@ -41,7 +41,8 @@ func (a *App) createOnHost(h forge.Host, feature string) error {
 
 	// The host CLI resolves the git remote, so it must run in the main
 	// workspace: that is the one colocated with git. A secondary workspace
-	// (../<repo>-<feature>) has a .jj directory but no .git.
+	// (under $XDG_DATA_HOME/jumux/workspaces/<repo>/<feature>) has a .jj
+	// directory but no .git.
 	out, err := a.Runner.Run(ctx.MainRoot, h.Bin, h.CreateArgv(feature, title, body)...)
 	if err != nil {
 		if h.AlreadyExists(err, title, body) {

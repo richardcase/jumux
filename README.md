@@ -25,8 +25,9 @@ jumux config show         print the effective config and where each value came f
 
 Run inside tmux, anywhere in a jj repo (ideally colocated with git):
 
-1. Creates a jj workspace named `<feature>` in a sibling directory
-   `../<repo>-<feature>`, based on `trunk()`.
+1. Creates a jj workspace named `<feature>` under
+   `$XDG_DATA_HOME/jumux/workspaces/<repo>/<feature>` (falling back to
+   `~/.local/share/jumux/workspaces/<repo>/<feature>`), based on `trunk()`.
 2. Opens a tmux window named `<feature>` in that directory. The window's
    name is pinned (`automatic-rename off`) and tagged with the custom option
    `@jumux-feature` so jumux can find it again even if it gets renamed.

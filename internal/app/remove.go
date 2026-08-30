@@ -42,7 +42,7 @@ func (a *App) Remove(name string, force bool) error {
 		return err
 	}
 
-	wsPath := workspacePath(ctx.MainRoot, name)
+	wsPath := a.workspacePath(ctx.MainRoot, name)
 	inList := contains(names, name)
 	_, statErr := os.Stat(wsPath)
 	dirExists := statErr == nil
