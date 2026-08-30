@@ -1,5 +1,9 @@
 # jumux
 
+[![CI](https://github.com/richardcase/jumux/actions/workflows/ci.yml/badge.svg)](https://github.com/richardcase/jumux/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/richardcase/jumux)](https://goreportcard.com/report/github.com/richardcase/jumux)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Work on multiple features in parallel with coding agents, pairing a
 [jujutsu](https://github.com/jj-vcs/jj) workspace with a tmux window per
 feature.
@@ -213,3 +217,14 @@ mise install
 
 `make build`, `make test`, `make lint`, and `make vet` all run through
 `mise exec`, so they automatically use the pinned tool versions.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+build, test, and submit changes, and [AGENTS.md](AGENTS.md) for project
+layout and conventions. Please note this project follows a
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+jumux is licensed under the [Apache License 2.0](LICENSE).
