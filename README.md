@@ -28,6 +28,10 @@ jumux config show         print the effective config and where each value came f
    repo, or `jj git init` for a new one).
 2. **Install jumux**:
    ```
+   brew install richardcase/tap/jumux
+   ```
+   or, with Go:
+   ```
    go install github.com/richardcase/jumux@latest
    ```
 3. **Start tmux and run jumux inside the repo**:
@@ -226,6 +230,12 @@ given. A template defined in `.jumux.toml` fully replaces a global
 template of the same name (its fields are not merged individually).
 
 ## Install
+
+```
+brew install richardcase/tap/jumux
+```
+
+or, with Go:
 
 ```
 go install github.com/richardcase/jumux@latest
