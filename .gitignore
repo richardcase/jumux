@@ -1,2 +1,15 @@
 bin/
 dist/
+
+# Go
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
