@@ -1,7 +1,8 @@
 version: 2
 
 builds:
-  - main: .
+  - id: jumux
+    main: .
     binary: jumux
     env:
       - CGO_ENABLED=0
@@ -14,8 +15,39 @@ builds:
     ldflags:
       - -s -w
 
+universal_binaries:
+  - id: jumux
+    replace: true
+
 archives:
   - formats: [tar.gz]
+
+nfpms:
+  - id: packages
+    package_name: jumux
+    formats: [deb, rpm]
+    maintainer: Richard Case <richmcase@gmail.com>
+    description: Work on multiple features in parallel with coding agents.
+    homepage: https://github.com/richardcase/jumux
+    license: Apache-2.0
+    bindir: /usr/bin
+
+homebrew_casks:
+  - repository:
+      owner: richardcase
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/richardcase/jumux
+    description: Work on multiple features in parallel with coding agents.
+    license: Apache-2.0
+    binaries:
+      - jumux
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jumux"]
+          end
 
 checksum:
   name_template: checksums.txt
