@@ -56,26 +56,29 @@ func TestListAllWindows(t *testing.T) {
 	}
 }
 
-func TestFindGlobalWindow(t *testing.T) {
+func TestFindGlobalWindows(t *testing.T) {
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		return "$0\tmain\t@1\tzsh\t\t/home/me\t0\t0\n" +
 			"$1\tother\t@2\trenamed-by-agent\tauth\t/repos/myrepo-auth\t0\t0\n" +
-			"$1\tother\t@3\tbilling\t\t/repos/myrepo-billing\t0\t0", nil
+			"$1\tother\t@3\tbilling\t\t/repos/myrepo-billing\t0\t0\n" +
+			"$2\tthird\t@4\trenamed-by-agent\tauth\t/other-repo/myrepo-auth\t0\t0", nil
 	}}
 	windows, err := ListAllWindows(fr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Feature tag wins over name, surviving a rename.
-	if w, ok := FindGlobalWindow(windows, "auth", "auth"); !ok || w.ID != "@2" || w.SessionID != "$1" {
-		t.Errorf("feature-tag lookup: got %+v, %v", w, ok)
+	// Feature tag wins over name, surviving a rename; both same-feature
+	// windows are returned, in list order, for the caller to disambiguate.
+	got := FindGlobalWindows(windows, "auth", "auth")
+	if len(got) != 2 || got[0].ID != "@2" || got[0].SessionID != "$1" || got[1].ID != "@4" || got[1].SessionID != "$2" {
+		t.Errorf("feature-tag lookup: got %+v", got)
 	}
 	// Fallback to exact window name when no tag matches.
-	if w, ok := FindGlobalWindow(windows, "billing", "billing"); !ok || w.ID != "@3" {
-		t.Errorf("name fallback: got %+v, %v", w, ok)
+	if got := FindGlobalWindows(windows, "billing", "billing"); len(got) != 1 || got[0].ID != "@3" {
+		t.Errorf("name fallback: got %+v", got)
 	}
-	if _, ok := FindGlobalWindow(windows, "nope", "nope"); ok {
-		t.Error("unexpected match")
+	if got := FindGlobalWindows(windows, "nope", "nope"); len(got) != 0 {
+		t.Errorf("unexpected match: %+v", got)
 	}
 }
 
