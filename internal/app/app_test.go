@@ -12,6 +12,7 @@ import (
 
 	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/run"
+	"github.com/richardcase/jumux/internal/sidebar"
 )
 
 // fixture builds a fake main repo (myrepo with .jj/repo dir + .git) and an
@@ -327,6 +328,67 @@ func TestRemoveStaleWorkspaceSkipsDirtyCheck(t *testing.T) {
 	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
 }
 
+// TestRemoveTargetIgnoresCwd asserts that an explicit target acts on its own
+// MainRoot/WindowID rather than the process's cwd, the CLI-only shortcut
+// RemoveTarget must not take.
+func TestRemoveTargetIgnoresCwd(t *testing.T) {
+	f := newFixture(t)
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// cwd resolves to a repo that has no "auth" workspace at all; the
+	// target's own MainRoot must be used instead.
+	f.app.Getwd = func() (string, error) { return "", fmt.Errorf("must not be called") }
+	target := sidebar.Target{Feature: "auth", MainRoot: f.mainRoot, WindowID: "@2"}
+	if err := f.app.RemoveTarget(target, true); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+}
+
+// TestRemoveTargetTwoReposSameFeatureName is the issue #60 regression case:
+// two repos both have a workspace/window named "auth"; removing the target
+// for one must not touch the other's workspace or window.
+func TestRemoveTargetTwoReposSameFeatureName(t *testing.T) {
+	f := newFixture(t)
+	home := f.app.Getenv("HOME")
+	repoB := filepath.Join(filepath.Dir(f.mainRoot), "repoB")
+	wsA := filepath.Join(home, ".local", "share", "jumux", "workspaces", "repoA", "auth")
+	wsB := filepath.Join(home, ".local", "share", "jumux", "workspaces", "repoB", "auth")
+	if err := os.MkdirAll(wsA, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(wsB, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	target := sidebar.Target{Feature: "auth", MainRoot: repoB, WindowID: "@9"}
+	if err := f.app.RemoveTarget(target, true); err != nil {
+		t.Fatal(err)
+	}
+
+	f.assertRan(t, "tmux kill-window -t @9")
+	f.assertNotRan(t, "tmux kill-window -t @2")
+	if _, err := os.Stat(wsB); !os.IsNotExist(err) {
+		t.Error("repoB's workspace dir should be deleted")
+	}
+	if _, err := os.Stat(wsA); os.IsNotExist(err) {
+		t.Error("repoA's workspace dir should be untouched")
+	}
+	forgotInRepoB := false
+	for _, c := range f.runner.Calls {
+		if c.Name == "jj" && len(c.Args) > 1 && c.Args[0] == "workspace" && c.Args[1] == "forget" && c.Dir == repoB {
+			forgotInRepoB = true
+		}
+		if c.Dir == f.mainRoot && len(c.Args) > 1 && c.Args[0] == "workspace" && c.Args[1] == "forget" {
+			t.Errorf("jj workspace forget must not run against the fixture's default repo: %+v", c)
+		}
+	}
+	if !forgotInRepoB {
+		t.Error("expected jj workspace forget to run with Dir == repoB")
+	}
+}
+
 func TestRemoveInfersFeatureFromCwd(t *testing.T) {
 	f := newFixture(t)
 	ws := f.wsPath("auth")
@@ -486,6 +548,28 @@ func TestRestartUnknownFeature(t *testing.T) {
 	if err := f.app.Restart("ghost", true); err == nil || !strings.Contains(err.Error(), "no tmux window found") {
 		t.Fatalf("got %v", err)
 	}
+}
+
+// TestRestartTargetActsOnGivenWindowAcrossSessions is the issue #60
+// regression case for restart: the target's WindowID must be acted on
+// directly, without a session-scoped tmux window search that could miss a
+// cross-session window or match the wrong one.
+func TestRestartTargetActsOnGivenWindowAcrossSessions(t *testing.T) {
+	f := newFixture(t)
+	// No window named "auth" in the (session-scoped) default fixture
+	// window list; the target's WindowID must be used directly instead of
+	// searching it.
+	f.responses["tmux list-windows"] = "@1\tzsh\t"
+	target := sidebar.Target{Feature: "auth", MainRoot: f.mainRoot, SessionID: "$9", WindowID: "@42"}
+	if err := f.app.RestartTarget(target, true); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t,
+		"tmux respawn-pane -k -t @42",
+		"tmux send-keys -t @42 -l claude",
+		"tmux send-keys -t @42 Enter",
+	)
+	f.assertNotRan(t, "tmux list-windows")
 }
 
 func TestRenameHappyPath(t *testing.T) {

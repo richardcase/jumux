@@ -12,9 +12,9 @@ import (
 
 func testItems() []Item {
 	return []Item{
-		{Label: "myrepo/auth", Feature: "auth", Status: "dirty", Agent: "working", SessionID: "$0", WindowID: "@2"},
-		{Label: "myrepo/billing", Feature: "billing", Status: "clean", Agent: "done", SessionID: "$0", WindowID: "@3"},
-		{Label: "other/fix", Feature: "fix", Status: "unknown", SessionID: "$1", WindowID: "@7", Activity: true},
+		{Label: "myrepo/auth", MainRoot: "/repos/myrepo", Feature: "auth", Status: "dirty", Agent: "working", SessionID: "$0", WindowID: "@2"},
+		{Label: "myrepo/billing", MainRoot: "/repos/myrepo", Feature: "billing", Status: "clean", Agent: "done", SessionID: "$0", WindowID: "@3"},
+		{Label: "other/fix", MainRoot: "/repos/other", Feature: "fix", Status: "unknown", SessionID: "$1", WindowID: "@7", Activity: true},
 	}
 }
 
@@ -145,7 +145,7 @@ func TestEnterOnEmptyListDoesNothing(t *testing.T) {
 }
 
 func TestDOnEmptyListDoesNothing(t *testing.T) {
-	m := newTestModelWithRemove(nil, nil, func(string) error {
+	m := newTestModelWithRemove(nil, nil, func(Target) error {
 		t.Fatal("remove must not be called")
 		return nil
 	})
@@ -158,7 +158,7 @@ func TestDOnEmptyListDoesNothing(t *testing.T) {
 }
 
 func TestDEntersConfirmState(t *testing.T) {
-	m := newTestModelWithRemove(testItems(), nil, func(string) error {
+	m := newTestModelWithRemove(testItems(), nil, func(Target) error {
 		t.Fatal("remove must not be called before confirmation")
 		return nil
 	})
@@ -172,9 +172,9 @@ func TestDEntersConfirmState(t *testing.T) {
 }
 
 func TestConfirmYCallsRemove(t *testing.T) {
-	var got string
-	remove := func(feature string) error {
-		got = feature
+	var got Target
+	remove := func(target Target) error {
+		got = target
 		return nil
 	}
 	m := newTestModelWithRemove(testItems(), nil, remove)
@@ -190,13 +190,14 @@ func TestConfirmYCallsRemove(t *testing.T) {
 	if msg, ok := cmd().(removeMsg); !ok || msg.err != nil {
 		t.Fatalf("cmd result: %+v", msg)
 	}
-	if got != "billing" {
-		t.Errorf("remove called with %q, want billing", got)
+	want := Target{Feature: "billing", MainRoot: "/repos/myrepo", SessionID: "$0", WindowID: "@3"}
+	if got != want {
+		t.Errorf("remove called with %+v, want %+v", got, want)
 	}
 }
 
 func TestConfirmNCancelsWithoutCalling(t *testing.T) {
-	remove := func(string) error {
+	remove := func(Target) error {
 		t.Fatal("remove must not be called")
 		return nil
 	}
@@ -212,7 +213,7 @@ func TestConfirmNCancelsWithoutCalling(t *testing.T) {
 }
 
 func TestRDoesNothingWhenPaneNotDead(t *testing.T) {
-	m := newTestModelWithRestart(testItems(), nil, nil, func(string) error {
+	m := newTestModelWithRestart(testItems(), nil, nil, func(Target) error {
 		t.Fatal("restart must not be called for a live pane")
 		return nil
 	})
@@ -222,12 +223,12 @@ func TestRDoesNothingWhenPaneNotDead(t *testing.T) {
 }
 
 func TestRCallsRestartForDeadPane(t *testing.T) {
-	var got string
-	restart := func(feature string) error {
-		got = feature
+	var got Target
+	restart := func(target Target) error {
+		got = target
 		return nil
 	}
-	items := []Item{{Label: "myrepo/auth", Feature: "auth", WindowID: "@2", PaneDead: true}}
+	items := []Item{{Label: "myrepo/auth", MainRoot: "/repos/myrepo", Feature: "auth", SessionID: "$0", WindowID: "@2", PaneDead: true}}
 	m := newTestModelWithRestart(items, nil, nil, restart)
 	m, cmd := update(t, m, key("r"))
 	if cmd == nil {
@@ -236,14 +237,15 @@ func TestRCallsRestartForDeadPane(t *testing.T) {
 	if msg, ok := cmd().(restartMsg); !ok || msg.err != nil {
 		t.Fatalf("cmd result: %+v", msg)
 	}
-	if got != "auth" {
-		t.Errorf("restart called with %q, want auth", got)
+	want := Target{Feature: "auth", MainRoot: "/repos/myrepo", SessionID: "$0", WindowID: "@2"}
+	if got != want {
+		t.Errorf("restart called with %+v, want %+v", got, want)
 	}
 	_ = m
 }
 
 func TestROnEmptyListDoesNothing(t *testing.T) {
-	m := newTestModelWithRestart(nil, nil, nil, func(string) error {
+	m := newTestModelWithRestart(nil, nil, nil, func(Target) error {
 		t.Fatal("restart must not be called on empty list")
 		return nil
 	})
