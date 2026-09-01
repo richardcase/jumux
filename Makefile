@@ -1,8 +1,8 @@
 BINARY := jumux
 
-.PHONY: all tools build test lint fmt vet clean
+.PHONY: all tools build test lint fmt vet vulncheck clean
 
-all: tools build test lint
+all: tools build test lint vulncheck
 
 tools:
 	mise install
@@ -15,6 +15,9 @@ test:
 
 lint:
 	mise exec -- golangci-lint run
+
+vulncheck:
+	mise exec -- govulncheck ./...
 
 fmt:
 	gofmt -l -w .
