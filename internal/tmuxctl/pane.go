@@ -86,20 +86,27 @@ func ListAllWindows(r run.Runner) ([]GlobalWindow, error) {
 	return windows, nil
 }
 
-// FindGlobalWindow locates a window for a feature across every session:
-// first by the @jumux-feature option, then by exact window name.
-func FindGlobalWindow(windows []GlobalWindow, feature, windowName string) (GlobalWindow, bool) {
+// FindGlobalWindows locates every window for a feature across every
+// session: first by the @jumux-feature option, then by exact window name.
+// The same feature can be open in more than one repository, so callers
+// that need a single window must disambiguate among the results (e.g. by
+// checking which repo each candidate's path belongs to).
+func FindGlobalWindows(windows []GlobalWindow, feature, windowName string) []GlobalWindow {
+	var matches []GlobalWindow
 	for _, w := range windows {
 		if w.Feature == feature {
-			return w, true
+			matches = append(matches, w)
 		}
+	}
+	if len(matches) > 0 {
+		return matches
 	}
 	for _, w := range windows {
 		if w.Name == windowName {
-			return w, true
+			matches = append(matches, w)
 		}
 	}
-	return GlobalWindow{}, false
+	return matches
 }
 
 // SplitWindowLeft creates a pane on the left edge of the window running cmd,
