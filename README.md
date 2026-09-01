@@ -290,3 +290,7 @@ layout and conventions. Please note this project follows a
 ## License
 
 jumux is licensed under the [Apache License 2.0](LICENSE).
+
+## Acknowledgements
+
+jumux was inspired by [workmux](https://github.com/nikolaeu/workmux).
