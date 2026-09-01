@@ -8,6 +8,7 @@ import (
 
 	"github.com/richardcase/jumux/internal/agentstate"
 	"github.com/richardcase/jumux/internal/jj"
+	"github.com/richardcase/jumux/internal/sidebar"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
@@ -91,6 +92,72 @@ func (a *App) Remove(name string, force bool) error {
 		// Killed last: if it is our own window this ends the process.
 		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", window.Name, window.ID)
 		if err := tmuxctl.KillWindow(a.Runner, window.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RemoveTarget tears down an explicit target's feature, the same way Remove
+// does, but never re-resolves the repo or window from the acting process's
+// own cwd/tmux session: it acts only on target.MainRoot and target.WindowID.
+// This is what the sidebar uses, since its rows span every repo and tmux
+// session and re-resolving from ambient state could hit the wrong one.
+func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
+	if err := a.requireTmux(); err != nil {
+		return err
+	}
+	name := target.Feature
+	if name == "default" {
+		return fmt.Errorf("refusing to remove the default workspace")
+	}
+	if err := validFeatureName(name); err != nil {
+		return err
+	}
+
+	names, err := jj.Workspaces(a.Runner, target.MainRoot)
+	if err != nil {
+		return err
+	}
+	wsPath := a.workspacePath(target.MainRoot, name)
+	inList := contains(names, name)
+	_, statErr := os.Stat(wsPath)
+	dirExists := statErr == nil
+	windowFound := target.WindowID != ""
+
+	if !inList && !dirExists && !windowFound {
+		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
+	}
+
+	if inList && dirExists && !force {
+		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
+		if err != nil {
+			return err
+		}
+		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; remove anyway?", name)) {
+			return fmt.Errorf("aborted")
+		}
+	}
+
+	if inList {
+		if err := jj.WorkspaceForget(a.Runner, target.MainRoot, name); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.Out, "forgot jj workspace %q\n", name)
+	}
+	if dirExists {
+		if err := os.RemoveAll(wsPath); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.Out, "deleted %s\n", wsPath)
+	}
+	if windowFound {
+		if err := agentstate.Remove(a.StateDir, target.WindowID); err != nil {
+			_, _ = fmt.Fprintf(a.Errw, "removing agent state: %v\n", err)
+		}
+		// Killed last: if it is our own window this ends the process.
+		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s\n", target.WindowID)
+		if err := tmuxctl.KillWindow(a.Runner, target.WindowID); err != nil {
 			return err
 		}
 	}

@@ -109,6 +109,7 @@ func (a *App) SidebarRun() error {
 			items = append(items, sidebar.Item{
 				Label:     label,
 				Repo:      row.Repo,
+				MainRoot:  row.MainRoot,
 				Feature:   row.Feature,
 				Status:    row.Status,
 				Agent:     row.AgentStatus,
@@ -124,22 +125,22 @@ func (a *App) SidebarRun() error {
 	jump := func(sessionID, windowID string) error {
 		return tmuxctl.SwitchToWindow(a.Runner, sessionID, windowID)
 	}
-	remove := func(feature string) error {
+	remove := func(target sidebar.Target) error {
 		// The sidebar's own y/n prompt replaces the CLI confirmation, and its
 		// output would corrupt the alt-screen, so this runs quietly and
 		// force=true.
 		quiet := *a
 		quiet.Out = io.Discard
 		quiet.Errw = io.Discard
-		return quiet.Remove(feature, true)
+		return quiet.RemoveTarget(target, true)
 	}
-	restart := func(feature string) error {
+	restart := func(target sidebar.Target) error {
 		// Restart is only offered for already-dead panes, so it never needs
 		// the "pane looks alive" confirmation prompt; run quietly.
 		quiet := *a
 		quiet.Out = io.Discard
 		quiet.Errw = io.Discard
-		return quiet.Restart(feature, true)
+		return quiet.RestartTarget(target, true)
 	}
 
 	final, err := runProgram(sidebar.NewModel(fetch, jump, remove, restart, cfg.SidebarRefreshInterval()))

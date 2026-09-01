@@ -15,6 +15,7 @@ import (
 // with the jj state of the workspace behind it.
 type FeatureStatus struct {
 	Repo        string // base name of the row's jj main root
+	MainRoot    string // canonical root of the row's jj repo, "" if unresolved
 	Feature     string
 	Status      string // "clean" | "dirty" | "unknown"
 	AgentStatus string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
@@ -62,6 +63,7 @@ func featureStatuses(r run.Runner, windows []tmuxctl.GlobalWindow, agent map[str
 		}
 		if mainRoot != "" {
 			row.Repo = filepath.Base(mainRoot)
+			row.MainRoot = mainRoot
 			if dirty, err := jj.IsDirty(r, w.Path, w.Feature); err == nil {
 				if dirty {
 					row.Status = "dirty"

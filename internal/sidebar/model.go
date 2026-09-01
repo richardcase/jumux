@@ -14,6 +14,7 @@ import (
 type Item struct {
 	Label     string // "repo/feature"
 	Repo      string // base name of the row's jj main root, "" if unresolved
+	MainRoot  string // canonical root of the row's jj repo, "" if unresolved
 	Feature   string // raw feature name, used to remove
 	Status    string // "clean" | "dirty" | "unknown"
 	Agent     string // "working" | "waiting" | "done" | "blocked" | "error" | "" (unknown)
@@ -24,6 +25,17 @@ type Item struct {
 	PaneDead  bool // the window's tmux pane has died (agent process exited)
 }
 
+// Target identifies which repo/session/window a Remove or Restart action
+// should act on, carried explicitly from the fetched row rather than
+// re-resolved from the acting process's own cwd/tmux session — the sidebar
+// spans every repo and session, so ambient resolution can hit the wrong one.
+type Target struct {
+	Feature   string
+	MainRoot  string
+	SessionID string
+	WindowID  string
+}
+
 // Fetch loads the current rows. It may return ErrSkip to indicate the pane
 // is not visible and the previous rows should be kept as-is.
 type Fetch func() ([]Item, error)
@@ -31,11 +43,11 @@ type Fetch func() ([]Item, error)
 // Jump switches the tmux client to an item's window.
 type Jump func(sessionID, windowID string) error
 
-// Remove tears down an item's feature.
-type Remove func(feature string) error
+// Remove tears down a target's feature.
+type Remove func(target Target) error
 
-// Restart restarts the agent command in a feature's (dead) pane.
-type Restart func(feature string) error
+// Restart restarts the agent command in a target's (dead) pane.
+type Restart func(target Target) error
 
 // ErrSkip tells the model a refresh was intentionally skipped.
 var ErrSkip = errors.New("refresh skipped")
@@ -202,9 +214,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			restart := m.restart
-			feature := item.Feature
+			target := Target{Feature: item.Feature, MainRoot: item.MainRoot, SessionID: item.SessionID, WindowID: item.WindowID}
 			return m, func() tea.Msg {
-				return restartMsg{err: restart(feature)}
+				return restartMsg{err: restart(target)}
 			}
 		}
 	case "q", "ctrl+c":
@@ -224,9 +236,9 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	remove := m.remove
-	feature := item.Feature
+	target := Target{Feature: item.Feature, MainRoot: item.MainRoot, SessionID: item.SessionID, WindowID: item.WindowID}
 	return m, func() tea.Msg {
-		return removeMsg{err: remove(feature)}
+		return removeMsg{err: remove(target)}
 	}
 }
 

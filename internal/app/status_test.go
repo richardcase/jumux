@@ -85,6 +85,24 @@ func TestFeatureStatuses(t *testing.T) {
 	}
 }
 
+func TestFeatureStatusesSetsMainRoot(t *testing.T) {
+	mainRoot, ws := statusFixture(t, "auth")
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		if strings.HasPrefix(cmd, "jj root") {
+			return dir, nil
+		}
+		return "", nil
+	}}
+	windows := []tmuxctl.GlobalWindow{
+		{SessionID: "$0", SessionName: "main", ID: "@2", Feature: "auth", Path: ws["auth"]},
+	}
+	rows := featureStatuses(fr, windows, nil, nil, statusNow, 0)
+	if len(rows) != 1 || rows[0].MainRoot != mainRoot {
+		t.Errorf("expected MainRoot %q, got rows: %+v", mainRoot, rows)
+	}
+}
+
 func TestFeatureStatusesStale(t *testing.T) {
 	_, ws := statusFixture(t, "auth", "billing", "fresh")
 	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
