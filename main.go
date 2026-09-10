@@ -28,6 +28,9 @@ Commands:
                        window (name defaults to the current feature); asks
                        for confirmation unless the pane looks dead or -f is
                        given
+  sync [name]          re-apply the configured files.copy/files.symlink
+                       operations to an existing workspace (name defaults
+                       to the current feature)
   rename <old> <new>   rename a feature's jj workspace, directory, and tmux
                        window in place, without recreating the working copy
   rebase [--onto REV] [feature]
@@ -107,6 +110,14 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Restart(fs.Arg(0), *force)
+	case "sync":
+		fs := flag.NewFlagSet("sync", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux sync [name]")
+			os.Exit(2)
+		}
+		err = a.Sync(fs.Arg(0))
 	case "rename":
 		fs := flag.NewFlagSet("rename", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])

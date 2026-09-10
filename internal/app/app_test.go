@@ -139,6 +139,97 @@ func TestAddUsesRepoConfigWithFeaturePlaceholder(t *testing.T) {
 	f.assertNotRan(t, "select-window")
 }
 
+func TestAddCopiesAndSymlinksConfiguredFiles(t *testing.T) {
+	f := newFixture(t)
+	cfg := "[files]\ncopy = [\".env\"]\nsymlink = [\"node_modules\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".env"), []byte("SECRET=1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(f.mainRoot, "node_modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.app.Add("billing", "", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	ws := f.wsPath("billing")
+	got, err := os.ReadFile(filepath.Join(ws, ".env"))
+	if err != nil {
+		t.Fatalf("reading copied .env: %v", err)
+	}
+	if string(got) != "SECRET=1" {
+		t.Errorf(".env content = %q, want %q", got, "SECRET=1")
+	}
+	target, err := os.Readlink(filepath.Join(ws, "node_modules"))
+	if err != nil {
+		t.Fatalf("reading node_modules symlink: %v", err)
+	}
+	if target != filepath.Join(f.mainRoot, "node_modules") {
+		t.Errorf("symlink target = %q, want %q", target, filepath.Join(f.mainRoot, "node_modules"))
+	}
+}
+
+func TestSyncAppliesToExistingWorkspace(t *testing.T) {
+	f := newFixture(t)
+	cfg := "[files]\ncopy = [\".env\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".env"), []byte("SECRET=1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.app.Sync("auth"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(ws, ".env"))
+	if err != nil {
+		t.Fatalf("reading synced .env: %v", err)
+	}
+	if string(got) != "SECRET=1" {
+		t.Errorf(".env content = %q, want %q", got, "SECRET=1")
+	}
+}
+
+func TestSyncFailsWhenWorkspaceMissing(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Sync("nonexistent"); err == nil {
+		t.Fatal("expected an error for a workspace with no directory")
+	}
+}
+
+func TestSyncInfersCurrentFeatureWhenNameOmitted(t *testing.T) {
+	f := newFixture(t)
+	cfg := "[files]\ncopy = [\".env\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".env"), []byte("SECRET=1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["tmux display-message"] = "auth"
+
+	if err := f.app.Sync(""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(ws, ".env")); err != nil {
+		t.Errorf("expected .env to be synced into the inferred workspace: %v", err)
+	}
+}
+
 func TestAddAgentOverride(t *testing.T) {
 	f := newFixture(t)
 	if err := f.app.Add("billing", "aider 'work on {feature}'", ""); err != nil {

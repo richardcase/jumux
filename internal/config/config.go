@@ -44,6 +44,16 @@ type Config struct {
 	// fully replaces a global template of the same name (fields are not
 	// merged individually across files).
 	Templates map[string]Template `toml:"templates"`
+	// Files lists glob patterns (relative to the repo root) to copy or
+	// symlink from the main workspace into a new workspace on `jumux add`,
+	// and to re-apply via `jumux sync`.
+	Files FilesConfig `toml:"files"`
+}
+
+// FilesConfig holds the copy/symlink glob patterns under the [files] table.
+type FilesConfig struct {
+	Copy    []string `toml:"copy"`
+	Symlink []string `toml:"symlink"`
 }
 
 // Template bundles overrides for a named preset combination of
