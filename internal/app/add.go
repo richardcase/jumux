@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/richardcase/jumux/internal/config"
+	"github.com/richardcase/jumux/internal/filesync"
 	"github.com/richardcase/jumux/internal/jj"
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
@@ -79,6 +80,8 @@ func (a *App) Add(feature, agentOverride, template string) error {
 			_, _ = fmt.Fprintf(a.Errw, "rollback: %v\n", rerr)
 		}
 	}
+
+	filesync.Apply(ctx.MainRoot, wsPath, ctx.Config.Files.Copy, ctx.Config.Files.Symlink, a.Errw)
 
 	windowID, err := tmuxctl.NewWindow(a.Runner, windowName, wsPath)
 	if err != nil {

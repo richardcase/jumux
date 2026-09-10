@@ -12,6 +12,7 @@ feature.
 jumux add <feature>       create a jj workspace + tmux window, start the agent
                           (-a/--agent overrides the agent; -t/--template applies a preset)
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
+jumux sync [name]         re-apply configured files.copy/files.symlink to a workspace
 jumux rebase [feature]    rebase a feature's workspace onto its base revision
                           (--onto REV rebases onto REV instead)
 jumux list                show feature workspaces and their tmux windows
@@ -250,6 +251,27 @@ left unset falls through to the regular `agent`/`base_revision`/etc.
 values. `-a`/`--agent` still wins over a template's `agent` if both are
 given. A template defined in `.jumux.toml` fully replaces a global
 template of the same name (its fields are not merged individually).
+
+### Files
+
+`[files]` lists glob patterns (relative to the main repo root) to copy or
+symlink into a new workspace on `jumux add`, and to re-apply to an existing
+workspace with `jumux sync [name]` — handy for gitignored files a workspace
+needs to actually build/run (`.env`, `node_modules`, a virtualenv, build
+caches):
+
+```toml
+[files]
+copy = [".env", "config/local.*"]
+symlink = ["node_modules", ".venv"]
+```
+
+Patterns are resolved with `filepath.Glob` (so `*`/`?`/`[...]` work, but not
+`**`); a pattern matching nothing is skipped silently, since these files are
+often optional. A destination that already exists is left untouched and
+reported as a warning rather than overwritten, so re-running `jumux sync` is
+safe. A copy/symlink failure only prints a warning — it never blocks `jumux
+add` from finishing.
 
 ## Install
 

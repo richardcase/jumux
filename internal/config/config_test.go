@@ -252,6 +252,41 @@ func TestLoadParsesTemplates(t *testing.T) {
 	}
 }
 
+func TestLoadParsesFiles(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "[files]\ncopy = [\".env\"]\nsymlink = [\"node_modules\", \".venv\"]\n")
+	cfg, err := Load(global, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Files.Copy; len(got) != 1 || got[0] != ".env" {
+		t.Errorf("Files.Copy = %v, want [.env]", got)
+	}
+	if got := cfg.Files.Symlink; len(got) != 2 || got[0] != "node_modules" || got[1] != ".venv" {
+		t.Errorf("Files.Symlink = %v, want [node_modules .venv]", got)
+	}
+}
+
+func TestLoadFilesRepoOverridesGlobalWholesale(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "[files]\ncopy = [\".env\"]\n")
+	repoRoot := filepath.Join(dir, "repo")
+	if err := os.Mkdir(repoRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(repoRoot, RepoFileName), "[files]\ncopy = [\"config/local.*\"]\n")
+
+	cfg, err := Load(global, repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Files.Copy; len(got) != 1 || got[0] != "config/local.*" {
+		t.Errorf("Files.Copy = %v, want repo value to fully replace global", got)
+	}
+}
+
 func TestAgentCommandOverride(t *testing.T) {
 	c := Config{Agent: "claude"}
 	if got := c.AgentCommand("auth", "aider 'work on {feature}'"); got != "aider 'work on auth'" {
