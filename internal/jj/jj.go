@@ -148,3 +148,18 @@ func LastChangeTime(r run.Runner, wsPath, name string) (time.Time, error) {
 func Description(r run.Runner, dir, rev string) (string, error) {
 	return r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", "description")
 }
+
+// Rebase moves rev onto newParent.
+func Rebase(r run.Runner, dir, rev, newParent string) error {
+	_, err := r.Run(dir, "jj", "rebase", "-r", rev, "-d", newParent)
+	return err
+}
+
+// HasConflict reports whether rev currently has an unresolved conflict.
+func HasConflict(r run.Runner, dir, rev string) (bool, error) {
+	out, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", `if(conflict, "conflict")`)
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(out, "conflict"), nil
+}

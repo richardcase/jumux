@@ -228,6 +228,59 @@ func TestLastChangeTime(t *testing.T) {
 	}
 }
 
+func TestRebase(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := Rebase(fr, "/ws-auth", "auth@", "trunk()"); err != nil {
+		t.Fatalf("Rebase() error = %v", err)
+	}
+	if got := fr.Calls[0].Dir; got != "/ws-auth" {
+		t.Errorf("rebase must run inside the workspace, ran in %q", got)
+	}
+	want := "jj rebase -r auth@ -d trunk()\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestRebaseError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if err := Rebase(frErr, "/ws-auth", "auth@", "trunk()"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestHasConflict(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "conflict", nil
+	}}
+	conflicted, err := HasConflict(fr, "/ws-auth", "auth@")
+	if err != nil || !conflicted {
+		t.Errorf("got %v, %v", conflicted, err)
+	}
+	if got := fr.Calls[0].Dir; got != "/ws-auth" {
+		t.Errorf("conflict check must run inside the workspace, ran in %q", got)
+	}
+
+	frClean := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", nil
+	}}
+	conflicted, err = HasConflict(frClean, "/ws-auth", "auth@")
+	if err != nil || conflicted {
+		t.Errorf("got %v, %v, want false, nil", conflicted, err)
+	}
+}
+
+func TestHasConflictError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if _, err := HasConflict(frErr, "/ws-auth", "auth@"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func TestLastChangeTimeErrors(t *testing.T) {
 	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
 		return "", errors.New("boom")
