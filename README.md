@@ -12,6 +12,8 @@ feature.
 jumux add <feature>       create a jj workspace + tmux window, start the agent
                           (-a/--agent overrides the agent; -t/--template applies a preset)
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
+jumux rebase [feature]    rebase a feature's workspace onto its base revision
+                          (--onto REV rebases onto REV instead)
 jumux list                show feature workspaces and their tmux windows
 jumux pr [feature]        push the feature's bookmark and open a GitHub PR
 jumux mr [feature]        push the feature's bookmark and open a GitLab MR

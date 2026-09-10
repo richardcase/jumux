@@ -30,6 +30,10 @@ Commands:
                        given
   rename <old> <new>   rename a feature's jj workspace, directory, and tmux
                        window in place, without recreating the working copy
+  rebase [--onto REV] [feature]
+                       rebase a feature's workspace onto its configured base
+                       revision (feature defaults to the current feature;
+                       --onto rebases onto REV instead)
   attach <feature>     switch the tmux client to a feature's existing
                        window, without touching jj or workspace state
   pr [feature]         push feature's bookmark and open a GitHub PR
@@ -111,6 +115,19 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Rename(fs.Arg(0), fs.Arg(1))
+	case "rebase":
+		fs := flag.NewFlagSet("rebase", flag.ExitOnError)
+		onto := fs.String("onto", "", "rebase onto this revision instead of the configured base")
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux rebase [--onto REV] [feature]")
+			os.Exit(2)
+		}
+		feature := ""
+		if fs.NArg() == 1 {
+			feature = fs.Arg(0)
+		}
+		err = a.Rebase(feature, *onto)
 	case "attach":
 		fs := flag.NewFlagSet("attach", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])

@@ -638,6 +638,83 @@ func TestRenameRejectsDefault(t *testing.T) {
 	}
 }
 
+func TestRebaseHappyPath(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rebase("auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj rebase -r auth@ -d trunk()")
+	if !strings.Contains(f.out.String(), `rebased "auth" onto trunk()`) {
+		t.Errorf("expected a success message, got: %s", f.out.String())
+	}
+}
+
+func TestRebaseWithOnto(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rebase("auth", "main"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj rebase -r auth@ -d main")
+	f.assertNotRan(t, "-d trunk()")
+}
+
+func TestRebaseFallsBackToParentWhenTrunkFails(t *testing.T) {
+	f := newFixture(t)
+	f.failOn = "jj rebase -r auth@ -d trunk()"
+	if err := f.app.Rebase("auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj rebase -r auth@ -d @-")
+	if !strings.Contains(f.err.String(), "warning:") {
+		t.Errorf("expected a warning about the fallback, got: %s", f.err.String())
+	}
+}
+
+func TestRebaseDoesNotFallBackWithExplicitOnto(t *testing.T) {
+	f := newFixture(t)
+	f.failOn = "jj rebase -r auth@ -d main"
+	err := f.app.Rebase("auth", "main")
+	if err == nil || !strings.Contains(err.Error(), "scripted failure") {
+		t.Fatalf("expected the original error, got %v", err)
+	}
+	f.assertNotRan(t, "-d @-")
+}
+
+func TestRebaseReportsConflict(t *testing.T) {
+	f := newFixture(t)
+	base := f.runner.Handler
+	f.runner.Handler = func(dir, name string, args ...string) (string, error) {
+		cmd := name + " " + strings.Join(args, " ")
+		if strings.Contains(cmd, "if(conflict") {
+			return "conflict", nil
+		}
+		return base(dir, name, args...)
+	}
+	if err := f.app.Rebase("auth", ""); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.out.String(), "with conflicts") {
+		t.Errorf("expected a conflict message, got: %s", f.out.String())
+	}
+}
+
+func TestRebaseUnknownFeature(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Rebase("ghost", ""); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("got %v", err)
+	}
+	f.assertNotRan(t, "jj rebase")
+}
+
+func TestRebaseInfersFeatureFromWindowTag(t *testing.T) {
+	f := newFixture(t)
+	f.responses["tmux display-message"] = "auth"
+	if err := f.app.Rebase("", ""); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj rebase -r auth@ -d trunk()")
+}
+
 func TestRenameWithoutWindowSkipsTmuxRename(t *testing.T) {
 	f := newFixture(t)
 	ws := f.wsPath("auth")
