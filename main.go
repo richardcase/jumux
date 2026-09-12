@@ -24,6 +24,11 @@ Commands:
   remove [-f] --all-done
                        remove every feature whose recorded agent status is
                        "done"
+  merge [-f] [name]    rebase a feature onto base_bookmark (default "main"),
+                       move base_bookmark to the rebased tip, then remove
+                       the feature's workspace, directory, and window
+                       (name defaults to the current feature); local-only,
+                       no push
   resurrect            recreate tmux windows for every feature workspace
                        that lost its window (e.g. after a tmux server
                        crash/restart); never touches jj, safe to re-run
@@ -104,6 +109,16 @@ func main() {
 		default:
 			err = a.Remove(fs.Arg(0), *force)
 		}
+	case "merge":
+		fs := flag.NewFlagSet("merge", flag.ExitOnError)
+		force := fs.Bool("force", false, "skip the dirty working-copy confirmation")
+		fs.BoolVar(force, "f", *force, "shorthand for -force")
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux merge [-f] [name]")
+			os.Exit(2)
+		}
+		err = a.Merge(fs.Arg(0), *force)
 	case "resurrect":
 		if len(os.Args) != 2 {
 			fmt.Fprintln(os.Stderr, "usage: jumux resurrect")

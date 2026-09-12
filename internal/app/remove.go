@@ -13,6 +13,125 @@ import (
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
+// workspaceTarget is a feature resolved against the repo's jj workspaces,
+// filesystem, and tmux windows, ready for cleanupWorkspace (and, before
+// that, whatever a caller like Merge needs to do to the feature itself).
+type workspaceTarget struct {
+	name        string
+	wsPath      string
+	inList      bool
+	dirExists   bool
+	window      tmuxctl.Window
+	windowFound bool
+}
+
+// resolveTarget resolves name to a workspaceTarget (inferring the current
+// feature if name is empty), refusing the default workspace and invalid
+// names, and, unless force is set, confirming before proceeding if the
+// workspace's working-copy commit is dirty. action names the caller's
+// operation ("remove", "merge") for its error/prompt wording.
+func (a *App) resolveTarget(ctx *repoContext, name string, force bool, action string) (workspaceTarget, error) {
+	names, err := jj.Workspaces(a.Runner, ctx.MainRoot)
+	if err != nil {
+		return workspaceTarget{}, err
+	}
+
+	if name == "" {
+		name, err = a.inferFeature(ctx, names)
+		if err != nil {
+			return workspaceTarget{}, err
+		}
+	}
+	if name == "default" {
+		return workspaceTarget{}, fmt.Errorf("refusing to %s the default workspace", action)
+	}
+	if err := validFeatureName(name); err != nil {
+		return workspaceTarget{}, err
+	}
+
+	wsPath := a.workspacePath(ctx.MainRoot, name)
+	inList := contains(names, name)
+	_, statErr := os.Stat(wsPath)
+	dirExists := statErr == nil
+
+	windows, err := tmuxctl.ListWindows(a.Runner)
+	if err != nil {
+		return workspaceTarget{}, err
+	}
+	window, windowFound := tmuxctl.FindWindow(windows, name, ctx.Config.WindowPrefix+name)
+
+	if !inList && !dirExists && !windowFound {
+		return workspaceTarget{}, fmt.Errorf("nothing to %s for feature %q: no workspace, directory, or tmux window found", action, name)
+	}
+
+	if inList && dirExists && !force {
+		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
+		if err != nil {
+			return workspaceTarget{}, err
+		}
+		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; %s anyway?", name, action)) {
+			return workspaceTarget{}, fmt.Errorf("aborted")
+		}
+	}
+
+	return workspaceTarget{
+		name:        name,
+		wsPath:      wsPath,
+		inList:      inList,
+		dirExists:   dirExists,
+		window:      window,
+		windowFound: windowFound,
+	}, nil
+}
+
+// cleanupWorkspace forgets t's jj workspace, deletes its directory, and
+// kills its tmux window, in that order. The window is killed last so
+// cleaning up the feature you are inside still completes the jj and
+// filesystem cleanup. Callers must have already left wsPath (e.g. via
+// os.Chdir) before calling this.
+//
+// Pre-remove hooks run first, only once teardown is actually going ahead
+// (callers must have already handled any decline-to-confirm before calling
+// this), so a hook with real side effects (tearing down a dev environment,
+// freeing external resources) never fires for a removal the user cancelled.
+// They run regardless of -f/--force (force only bypasses the confirmation
+// prompt) and before anything destructive below.
+func (a *App) cleanupWorkspace(ctx *repoContext, t workspaceTarget) error {
+	windowName := ""
+	if t.windowFound {
+		windowName = t.window.Name
+	}
+	if t.dirExists {
+		if err := runHooks(a.HookRunner, t.wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
+			hookEnv("pre_remove", t.name, t.wsPath, ctx.MainRoot, windowName)); err != nil {
+			return err
+		}
+	}
+	if t.inList {
+		if err := jj.WorkspaceForget(a.Runner, ctx.MainRoot, t.name); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.Out, "forgot jj workspace %q\n", t.name)
+	}
+	if t.dirExists {
+		if err := os.RemoveAll(t.wsPath); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.Out, "deleted %s\n", t.wsPath)
+	}
+	if t.windowFound {
+		if err := agentstate.Remove(a.StateDir, t.window.ID); err != nil {
+			_, _ = fmt.Fprintf(a.Errw, "removing agent state: %v\n", err)
+		}
+		// Killed last: if it is our own window this ends the process.
+		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", t.window.Name, t.window.ID)
+		if err := tmuxctl.KillWindow(a.Runner, t.window.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Remove tears down a feature: forgets the jj workspace, deletes its
 // directory, and kills its tmux window. If name is empty the current
 // feature is inferred (cwd first, then the current window's tag).
@@ -26,94 +145,16 @@ func (a *App) Remove(name string, force bool) error {
 	if err != nil {
 		return err
 	}
-	names, err := jj.Workspaces(a.Runner, ctx.MainRoot)
+	target, err := a.resolveTarget(ctx, name, force, "remove")
 	if err != nil {
 		return err
-	}
-
-	if name == "" {
-		name, err = a.inferFeature(ctx, names)
-		if err != nil {
-			return err
-		}
-	}
-	if name == "default" {
-		return fmt.Errorf("refusing to remove the default workspace")
-	}
-	if err := validFeatureName(name); err != nil {
-		return err
-	}
-
-	wsPath := a.workspacePath(ctx.MainRoot, name)
-	inList := contains(names, name)
-	_, statErr := os.Stat(wsPath)
-	dirExists := statErr == nil
-
-	windows, err := tmuxctl.ListWindows(a.Runner)
-	if err != nil {
-		return err
-	}
-	window, windowFound := tmuxctl.FindWindow(windows, name, ctx.Config.WindowPrefix+name)
-
-	if !inList && !dirExists && !windowFound {
-		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
-	}
-
-	if inList && dirExists && !force {
-		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
-		if err != nil {
-			return err
-		}
-		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; remove anyway?", name)) {
-			return fmt.Errorf("aborted")
-		}
-	}
-
-	// Pre-remove hooks run only once removal is actually going ahead (after
-	// any decline-to-confirm has already returned), so a hook with real
-	// side effects (tearing down a dev environment, freeing external
-	// resources) never fires for a removal the user cancelled. They still
-	// run regardless of -f/--force (force only bypasses the prompt above)
-	// and before anything destructive below.
-	windowName := ""
-	if windowFound {
-		windowName = window.Name
-	}
-	if dirExists {
-		if err := runHooks(a.HookRunner, wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
-			hookEnv("pre_remove", name, wsPath, ctx.MainRoot, windowName)); err != nil {
-			return err
-		}
 	}
 
 	// Get out of the directory we are about to delete.
 	if err := os.Chdir(ctx.MainRoot); err != nil {
 		return err
 	}
-
-	if inList {
-		if err := jj.WorkspaceForget(a.Runner, ctx.MainRoot, name); err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(a.Out, "forgot jj workspace %q\n", name)
-	}
-	if dirExists {
-		if err := os.RemoveAll(wsPath); err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(a.Out, "deleted %s\n", wsPath)
-	}
-	if windowFound {
-		if err := agentstate.Remove(a.StateDir, window.ID); err != nil {
-			_, _ = fmt.Fprintf(a.Errw, "removing agent state: %v\n", err)
-		}
-		// Killed last: if it is our own window this ends the process.
-		_, _ = fmt.Fprintf(a.Out, "killing tmux window %s (%s)\n", window.Name, window.ID)
-		if err := tmuxctl.KillWindow(a.Runner, window.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.cleanupWorkspace(ctx, target)
 }
 
 // RemoveTarget tears down an explicit target's feature, the same way Remove

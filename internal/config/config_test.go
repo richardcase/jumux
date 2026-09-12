@@ -19,7 +19,7 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Agent != "claude" || cfg.BaseRevision != "trunk()" || !cfg.SelectWindowEnabled() {
+	if cfg.Agent != "claude" || cfg.BaseRevision != "trunk()" || cfg.BaseBookmark != "main" || !cfg.SelectWindowEnabled() {
 		t.Errorf("unexpected defaults: %+v", cfg)
 	}
 	if !cfg.NotifyEnabled() {
