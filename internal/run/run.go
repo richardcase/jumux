@@ -41,6 +41,11 @@ type HookRunner interface {
 	RunHook(dir, command string, env []string, timeout time.Duration) error
 }
 
+// hookWaitDelay bounds how long RunHook waits, after the sh process has
+// exited or been killed, for its Stdout/Stderr pipes to close — see the
+// comment at its use in RunHook.
+const hookWaitDelay = 1 * time.Second
+
 // ExecHookRunner runs hook commands with os/exec via "sh -c". Stdout/Stderr
 // default to os.Stdout/os.Stderr when nil, so the zero value keeps today's
 // behavior; callers that need to keep hook output off the real stdout/stderr
@@ -68,6 +73,13 @@ func (r ExecHookRunner) RunHook(dir, command string, env []string, timeout time.
 	if r.Stderr != nil {
 		cmd.Stderr = r.Stderr
 	}
+	// Killing the sh process on timeout doesn't kill anything it spawned;
+	// if a grandchild keeps the Stdout/Stderr pipe open (e.g. a backgrounded
+	// command, or a discarded-but-still-piped writer like io.Discard),
+	// cmd.Run would otherwise block past the deadline waiting for that pipe
+	// to close. WaitDelay bounds that extra wait so timeout is honored even
+	// then.
+	cmd.WaitDelay = hookWaitDelay
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("hook command %q timed out after %s", command, timeout)

@@ -3,6 +3,7 @@ package run
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -70,6 +71,26 @@ func TestExecHookRunnerTimeout(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "timed out") {
 		t.Errorf("expected a timeout-flavored error, got %v", err)
+	}
+}
+
+// TestExecHookRunnerTimeoutBoundedWithDiscardedOutput reproduces the case
+// where Stdout/Stderr are non-*os.File writers (as the sidebar configures
+// with io.Discard): os/exec then uses real pipes and waits for the process
+// group to release them. A grandchild the timed-out shell spawned (here,
+// the "sleep" the shell forks to run) keeps that pipe open past the
+// parent's death, and without a bounded WaitDelay, RunHook would block for
+// the full grandchild lifetime instead of honoring the timeout.
+func TestExecHookRunnerTimeoutBoundedWithDiscardedOutput(t *testing.T) {
+	r := ExecHookRunner{Stdout: io.Discard, Stderr: io.Discard}
+	start := time.Now()
+	err := r.RunHook(t.TempDir(), "sleep 2; echo done", nil, 50*time.Millisecond)
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected a timeout error")
+	}
+	if elapsed >= 2*time.Second {
+		t.Errorf("RunHook took %s; a lingering grandchild holding the output pipe should not block past hookWaitDelay", elapsed)
 	}
 }
 
