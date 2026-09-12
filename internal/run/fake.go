@@ -3,6 +3,7 @@ package run
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Call records one invocation made through a FakeRunner.
@@ -38,4 +39,28 @@ func (f *FakeRunner) CommandLines() string {
 		fmt.Fprintln(&b, c.String())
 	}
 	return b.String()
+}
+
+// HookCall records one invocation made through a FakeHookRunner.
+type HookCall struct {
+	Dir     string
+	Command string
+	Env     []string
+	Timeout time.Duration
+}
+
+// FakeHookRunner is a scripted HookRunner for tests. If Handler is set it
+// decides the response; otherwise every call succeeds unless Err is set.
+type FakeHookRunner struct {
+	Calls   []HookCall
+	Err     error
+	Handler func(dir, command string, env []string, timeout time.Duration) error
+}
+
+func (f *FakeHookRunner) RunHook(dir, command string, env []string, timeout time.Duration) error {
+	f.Calls = append(f.Calls, HookCall{Dir: dir, Command: command, Env: env, Timeout: timeout})
+	if f.Handler != nil {
+		return f.Handler(dir, command, env, timeout)
+	}
+	return f.Err
 }
