@@ -128,10 +128,13 @@ func (a *App) SidebarRun() error {
 	remove := func(target sidebar.Target) error {
 		// The sidebar's own y/n prompt replaces the CLI confirmation, and its
 		// output would corrupt the alt-screen, so this runs quietly and
-		// force=true.
+		// force=true. RemoveTarget can also run a configured pre_remove_hooks
+		// command, whose own stdout/stderr would corrupt the alt-screen just
+		// the same, so give it a HookRunner that discards those too.
 		quiet := *a
 		quiet.Out = io.Discard
 		quiet.Errw = io.Discard
+		quiet.HookRunner = run.ExecHookRunner{Stdout: io.Discard, Stderr: io.Discard}
 		return quiet.RemoveTarget(target, true)
 	}
 	restart := func(target sidebar.Target) error {

@@ -1,6 +1,7 @@
 package run
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"strings"
@@ -39,6 +40,17 @@ func TestExecHookRunnerPassesEnv(t *testing.T) {
 	}
 	if strings.TrimSpace(got) != "billing" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestExecHookRunnerOverriddenStdoutIsUsed(t *testing.T) {
+	var buf bytes.Buffer
+	r := ExecHookRunner{Stdout: &buf}
+	if err := r.RunHook(t.TempDir(), "echo hello", nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(buf.String()) != "hello" {
+		t.Errorf("got %q, want output captured in the overridden Stdout", buf.String())
 	}
 }
 

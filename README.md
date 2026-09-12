@@ -228,8 +228,13 @@ stops the remaining commands and aborts the operation: `add` rolls back the
 workspace and tmux window it just created, and `remove` never touches the
 jj workspace or the directory. `pre_remove_hooks` always run, even with
 `-f`/`--force` (force only skips the interactive dirty-workspace prompt).
+`pre_remove_hooks` only run when the workspace directory still exists, so
+cleaning up a partial state (e.g. a stale jj workspace entry or tmux window
+whose directory is already gone) is never blocked by a hook.
 `hook_timeout_seconds` bounds each command individually; set it to `0` to
-disable the timeout.
+disable the timeout. Note: only the immediate `sh` process is killed on
+timeout — a hook that backgrounds work or spawns children may leave those
+running.
 
 Example with a starting prompt:
 

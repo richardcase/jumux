@@ -994,6 +994,11 @@ func TestAddRunsPostCreateHooksBeforeAgentStarts(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	var callsAtHookTime int
+	f.hookRunner.Handler = func(dir, command string, env []string, timeout time.Duration) error {
+		callsAtHookTime = len(f.runner.Calls)
+		return nil
+	}
 	if err := f.app.Add("billing", "", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -1003,9 +1008,21 @@ func TestAddRunsPostCreateHooksBeforeAgentStarts(t *testing.T) {
 	if f.hookRunner.Calls[0].Dir != f.wsPath("billing") {
 		t.Errorf("hook should run in the workspace dir, got %q", f.hookRunner.Calls[0].Dir)
 	}
-	// The hook must run before the agent is sent to tmux.
+	// The hook must run before the agent is sent to tmux: prove no
+	// send-keys call had happened yet at the moment the hook fired.
+	finalCalls := len(f.runner.Calls)
 	if idx := strings.Index(f.runner.CommandLines(), "tmux send-keys"); idx == -1 {
 		t.Fatal("expected the agent send-keys command to have run")
+	}
+	if callsAtHookTime >= finalCalls {
+		t.Errorf("hook ran with %d prior commands, which already includes send-keys (final count %d)", callsAtHookTime, finalCalls)
+	}
+	// Directly confirm none of the commands that ran before the hook was
+	// send-keys.
+	for _, c := range f.runner.Calls[:callsAtHookTime] {
+		if c.Name == "tmux" && len(c.Args) > 0 && c.Args[0] == "send-keys" {
+			t.Errorf("send-keys ran before the post-create hook: %+v", c)
+		}
 	}
 }
 
@@ -1121,4 +1138,118 @@ func TestRemoveNoHooksConfiguredSkipsHookRunner(t *testing.T) {
 	if len(f.hookRunner.Calls) != 0 {
 		t.Errorf("expected no hook calls, got %+v", f.hookRunner.Calls)
 	}
+}
+
+// TestRemoveSkipsPreRemoveHooksWhenDirMissing is the partial-state case
+// remove() exists to clean up: the jj workspace and tmux window are still
+// present but the directory is already gone. A configured pre_remove_hooks
+// command must not run (it would fail to chdir into a missing directory and
+// block the cleanup) and removal must still succeed.
+func TestRemoveSkipsPreRemoveHooksWhenDirMissing(t *testing.T) {
+	f := newFixture(t)
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// "auth" is listed by jj and has a tmux window (per fixture defaults)
+	// but its directory was never created.
+	if err := f.app.Remove("auth", false); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 0 {
+		t.Errorf("expected no hook calls when the workspace dir is missing, got %+v", f.hookRunner.Calls)
+	}
+	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+}
+
+func TestRemoveTargetRunsPreRemoveHooksBeforeForget(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := sidebar.Target{Feature: "auth", MainRoot: f.mainRoot, WindowID: "@2"}
+	if err := f.app.RemoveTarget(target, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 1 || f.hookRunner.Calls[0].Command != "./check.sh" {
+		t.Fatalf("unexpected hook calls: %+v", f.hookRunner.Calls)
+	}
+	if f.hookRunner.Calls[0].Dir != ws {
+		t.Errorf("hook should run in the workspace dir, got %q", f.hookRunner.Calls[0].Dir)
+	}
+	for _, e := range f.hookRunner.Calls[0].Env {
+		if strings.HasPrefix(e, "JUMUX_WINDOW_NAME=") {
+			t.Errorf("RemoveTarget must not set JUMUX_WINDOW_NAME from an opaque window ID, got %q", e)
+		}
+	}
+	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+}
+
+func TestRemoveTargetAbortsWhenPreRemoveHookFails(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.hookRunner.Err = errors.New("scripted hook failure")
+	target := sidebar.Target{Feature: "auth", MainRoot: f.mainRoot, WindowID: "@2"}
+	err := f.app.RemoveTarget(target, true)
+	if err == nil || !strings.Contains(err.Error(), "scripted hook failure") {
+		t.Fatalf("got %v", err)
+	}
+	f.assertNotRan(t, "jj workspace forget", "kill-window")
+	if _, statErr := os.Stat(ws); statErr != nil {
+		t.Errorf("workspace dir should still exist, stat error: %v", statErr)
+	}
+}
+
+// TestRemoveAllDoneContinuesAfterHookFailure asserts RemoveAllDone's
+// firstErr-accumulation behavior still holds when a pre-remove hook is what
+// fails: one feature's hook failing must not stop the rest from being
+// removed, and the first error must still be surfaced to the caller.
+func TestRemoveAllDoneContinuesAfterHookFailure(t *testing.T) {
+	f := newFixture(t)
+	f.app.StateDir = t.TempDir()
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nbilling: bb 33"
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\tauth\tauth\n@3\tbilling\tbilling"
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(f.wsPath("billing"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: "@2", Status: agentstate.Done, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := agentstate.Write(f.app.StateDir, agentstate.Entry{WindowID: "@3", Status: agentstate.Done, UpdatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	// "auth" is removed first (billing has no cwd/window tag to move it
+	// later, and auth sorts first in jj workspace list order); fail its hook
+	// specifically and let billing's hook succeed.
+	f.hookRunner.Handler = func(dir, command string, env []string, timeout time.Duration) error {
+		if dir == f.wsPath("auth") {
+			return errors.New("scripted hook failure for auth")
+		}
+		return nil
+	}
+	err := f.app.RemoveAllDone(false)
+	if err == nil || !strings.Contains(err.Error(), "scripted hook failure for auth") {
+		t.Fatalf("got %v, want the auth hook failure surfaced", err)
+	}
+	f.assertNotRan(t, "jj workspace forget auth")
+	f.assertRan(t, "jj workspace forget billing", "tmux kill-window -t @3")
 }

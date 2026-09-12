@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -40,10 +41,16 @@ type HookRunner interface {
 	RunHook(dir, command string, env []string, timeout time.Duration) error
 }
 
-// ExecHookRunner runs hook commands with os/exec via "sh -c".
-type ExecHookRunner struct{}
+// ExecHookRunner runs hook commands with os/exec via "sh -c". Stdout/Stderr
+// default to os.Stdout/os.Stderr when nil, so the zero value keeps today's
+// behavior; callers that need to keep hook output off the real stdout/stderr
+// (e.g. the sidebar's alt-screen) can set them explicitly.
+type ExecHookRunner struct {
+	Stdout io.Writer
+	Stderr io.Writer
+}
 
-func (ExecHookRunner) RunHook(dir, command string, env []string, timeout time.Duration) error {
+func (r ExecHookRunner) RunHook(dir, command string, env []string, timeout time.Duration) error {
 	ctx := context.Background()
 	var cancel context.CancelFunc
 	if timeout > 0 {
@@ -54,7 +61,13 @@ func (ExecHookRunner) RunHook(dir, command string, env []string, timeout time.Du
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout = os.Stdout
+	if r.Stdout != nil {
+		cmd.Stdout = r.Stdout
+	}
 	cmd.Stderr = os.Stderr
+	if r.Stderr != nil {
+		cmd.Stderr = r.Stderr
+	}
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("hook command %q timed out after %s", command, timeout)
