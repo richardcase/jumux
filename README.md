@@ -194,6 +194,9 @@ stale_after_hours = 168     # idle threshold for the stale indicator; 0 disables
 notify_quiet_start = ""     # start of a daily "HH:MM" window to suppress notifications
 notify_quiet_end = ""       # end of that window; leave both unset to disable quiet hours
 notify_webhook = ""         # if set, also POST {"title","message"} JSON here on status changes
+post_create_hooks = []       # shell commands run (in order) after the workspace/window are created, before the agent starts
+pre_remove_hooks = []        # shell commands run (in order) before workspace removal; a failure aborts removal
+hook_timeout_seconds = 300   # max seconds a single hook command may run; 0 disables the timeout
 ```
 
 Run `jumux config show` to see the effective merged value of every key,
@@ -216,6 +219,17 @@ unset to disable quiet hours.
 changes — useful for routing notifications somewhere other than the local
 desktop (chat webhook, phone push gateway, etc.) when you're away from
 the machine. A webhook failure is logged but never fails the hook.
+
+`post_create_hooks`/`pre_remove_hooks` run each command in order via `sh -c`
+in the workspace directory, with output streamed live to your terminal and
+`JUMUX_EVENT`/`JUMUX_FEATURE`/`JUMUX_WORKSPACE_PATH`/`JUMUX_REPO_ROOT`/
+`JUMUX_WINDOW_NAME` set in the environment. A failing (or timed-out) command
+stops the remaining commands and aborts the operation: `add` rolls back the
+workspace and tmux window it just created, and `remove` never touches the
+jj workspace or the directory. `pre_remove_hooks` always run, even with
+`-f`/`--force` (force only skips the interactive dirty-workspace prompt).
+`hook_timeout_seconds` bounds each command individually; set it to `0` to
+disable the timeout.
 
 Example with a starting prompt:
 
@@ -252,6 +266,13 @@ left unset falls through to the regular `agent`/`base_revision`/etc.
 values. `-a`/`--agent` still wins over a template's `agent` if both are
 given. A template defined in `.jumux.toml` fully replaces a global
 template of the same name (its fields are not merged individually).
+
+`post_create_hooks` follows the same rule: a template that sets it replaces
+the base `post_create_hooks` list entirely (not merged/appended). There is
+no per-template override for `pre_remove_hooks`, since removal has no
+reliable way to know which template a workspace was originally created
+with — `pre_remove_hooks` always comes from the regular (non-template)
+config.
 
 ### Files
 
