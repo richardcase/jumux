@@ -12,6 +12,7 @@ feature.
 jumux add <feature>       create a jj workspace + tmux window, start the agent
                           (-a/--agent overrides the agent; -t/--template applies a preset)
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
+jumux merge [-f] [name]   merge a feature into the base bookmark locally, then tear it down
 jumux resurrect           recreate tmux windows lost to a tmux crash/restart
 jumux sync [name]         re-apply configured files.copy/files.symlink to a workspace
 jumux rebase [feature]    rebase a feature's workspace onto its base revision
@@ -93,6 +94,21 @@ etc.) is skipped, and it only errors if nothing at all was found.
 recorded agent status (see [Agent status icons](#agent-status-icons)) is
 `done`, running the same steps above for each one. If the feature you are
 currently in is among them, it is removed last.
+
+## What `merge` does
+
+For merging a feature in locally instead of going through a PR/MR:
+
+1. Resolves the feature the same way `remove` does, including the
+   dirty-working-copy confirmation.
+2. Rebases the feature onto `base_bookmark` (default `main`, configurable —
+   see [Configuration](#configuration)) and moves `base_bookmark` to the
+   rebased tip. This is local only — nothing is pushed.
+3. If the rebase leaves the feature conflicted, stops here: the base
+   bookmark is left untouched and the workspace/directory/window survive so
+   you can resolve the conflict and run `merge` again.
+4. Otherwise, cleans up exactly like `remove`: forgets the jj workspace,
+   deletes the directory, and kills the tmux window.
 
 ## What `sidebar` does
 
@@ -186,6 +202,7 @@ Global `~/.config/jumux/config.toml`, overridden per-key by
 agent = "claude"            # command to run; "{feature}" is substituted if present
 select_window = true        # switch to the new window after add
 base_revision = "trunk()"   # revset new workspaces are based on
+base_bookmark = "main"      # bookmark `jumux merge` rebases onto and moves to the merged tip
 window_prefix = ""          # prepended to tmux window names
 sidebar_width = 32          # sidebar pane width in columns
 sidebar_refresh = 2         # sidebar refresh interval in seconds

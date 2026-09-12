@@ -20,10 +20,19 @@ const RepoFileName = ".jumux.toml"
 // local-only repos with no remote configured.
 const DefaultBaseRevision = "trunk()"
 
+// DefaultBaseBookmark is the built-in base_bookmark value: the bookmark
+// `jumux merge` moves onto a feature's rebased tip.
+const DefaultBaseBookmark = "main"
+
 type Config struct {
-	Agent           string `toml:"agent"`
-	SelectWindow    *bool  `toml:"select_window"`
-	BaseRevision    string `toml:"base_revision"`
+	Agent        string `toml:"agent"`
+	SelectWindow *bool  `toml:"select_window"`
+	BaseRevision string `toml:"base_revision"`
+	// BaseBookmark is the bookmark `jumux merge` rebases a feature onto and
+	// then moves to the feature's rebased tip. Unlike BaseRevision (a
+	// revset such as trunk(), used only to seed new workspaces), this must
+	// name an actual bookmark.
+	BaseBookmark    string `toml:"base_bookmark"`
 	WindowPrefix    string `toml:"window_prefix"`
 	SidebarWidth    int    `toml:"sidebar_width"`
 	SidebarRefresh  int    `toml:"sidebar_refresh"`
@@ -88,6 +97,7 @@ func defaults() Config {
 	return Config{
 		Agent:              "claude",
 		BaseRevision:       DefaultBaseRevision,
+		BaseBookmark:       DefaultBaseBookmark,
 		SidebarWidth:       32,
 		SidebarRefresh:     2,
 		StaleAfterHours:    168, // 7 days

@@ -116,6 +116,26 @@ func IsDirty(r run.Runner, wsPath, name string) (bool, error) {
 	return strings.Contains(out, "dirty"), nil
 }
 
+// Rebase moves the whole branch (stack) containing rev onto dest: every
+// commit that is an ancestor of rev but not already an ancestor of dest.
+// Using "-b" (branch) rather than "-r" (single revision) is required so
+// that a feature workspace with multiple commits keeps its earlier commits
+// instead of losing them to the old base.
+func Rebase(r run.Runner, dir, rev, dest string) error {
+	_, err := r.Run(dir, "jj", "rebase", "-b", rev, "-d", dest)
+	return err
+}
+
+// HasConflict reports whether rev is a conflicted commit.
+func HasConflict(r run.Runner, dir, rev string) (bool, error) {
+	out, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph",
+		"-T", `if(conflict, "conflict", "clean")`)
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(out, "conflict"), nil
+}
+
 // BookmarkSet sets bookmark name to point at rev.
 func BookmarkSet(r run.Runner, dir, name, rev string) error {
 	_, err := r.Run(dir, "jj", "bookmark", "set", name, "-r", rev)
@@ -147,23 +167,4 @@ func LastChangeTime(r run.Runner, wsPath, name string) (time.Time, error) {
 // Description returns the full change description for rev.
 func Description(r run.Runner, dir, rev string) (string, error) {
 	return r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", "description")
-}
-
-// Rebase moves the whole branch (stack) containing rev onto newParent: every
-// commit that is an ancestor of rev but not already an ancestor of
-// newParent. Using "-b" (branch) rather than "-r" (single revision) is
-// required so that a feature workspace with multiple commits keeps its
-// earlier commits instead of losing them to the old base.
-func Rebase(r run.Runner, dir, rev, newParent string) error {
-	_, err := r.Run(dir, "jj", "rebase", "-b", rev, "-d", newParent)
-	return err
-}
-
-// HasConflict reports whether rev currently has an unresolved conflict.
-func HasConflict(r run.Runner, dir, rev string) (bool, error) {
-	out, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", `if(conflict, "conflict")`)
-	if err != nil {
-		return false, err
-	}
-	return strings.Contains(out, "conflict"), nil
 }
