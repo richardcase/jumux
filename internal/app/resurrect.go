@@ -28,7 +28,10 @@ func (a *App) Resurrect() error {
 	if err != nil {
 		return err
 	}
-	windows, err := tmuxctl.ListWindows(a.Runner)
+	// Windows are looked up across every session, not just the current one:
+	// a feature's window (or another live agent's status file) may belong to
+	// a different tmux session than the one resurrect is run from.
+	windows, err := tmuxctl.ListAllWindows(a.Runner)
 	if err != nil {
 		return err
 	}
@@ -45,8 +48,8 @@ func (a *App) Resurrect() error {
 			continue
 		}
 		windowName := ctx.Config.WindowPrefix + name
-		if _, ok := tmuxctl.FindWindow(windows, name, windowName); ok {
-			continue // already has a window; nothing to do
+		if hasFeatureWindow(windows, name, windowName, wsPath) {
+			continue // already has a window (in this or another session)
 		}
 
 		windowID, err := tmuxctl.NewWindow(a.Runner, windowName, wsPath)
@@ -85,14 +88,33 @@ func (a *App) Resurrect() error {
 	}
 
 	// Best-effort: drop agent-status entries left over from the crashed
-	// server, now that we know which window IDs are actually live.
-	if live, err := tmuxctl.ListWindows(a.Runner); err == nil {
+	// server, now that we know which window IDs are actually live. StateDir
+	// is shared across every tmux session, so the live set must be too
+	// (mirrors SidebarRun's fetch in sidebar.go) — otherwise this would
+	// delete status files for still-running agents in other sessions.
+	if live, err := tmuxctl.ListAllWindows(a.Runner); err == nil {
 		liveIDs := map[string]bool{}
 		for _, w := range live {
-			liveIDs[w.ID] = true
+			if w.Feature != "" {
+				liveIDs[w.ID] = true
+			}
 		}
 		_ = agentstate.Prune(a.StateDir, liveIDs)
 	}
 
 	return firstErr
+}
+
+// hasFeatureWindow reports whether a feature already has a live tmux window,
+// anywhere across every session. Matching by feature/name alone isn't
+// enough: the same feature name can exist in more than one repository, each
+// with its own deterministic workspace path, so a candidate only counts if
+// it is actually running in this feature's workspace directory.
+func hasFeatureWindow(windows []tmuxctl.GlobalWindow, feature, windowName, wsPath string) bool {
+	for _, w := range tmuxctl.FindGlobalWindows(windows, feature, windowName) {
+		if w.Path == wsPath {
+			return true
+		}
+	}
+	return false
 }
