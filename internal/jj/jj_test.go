@@ -106,6 +106,58 @@ func TestIsDirty(t *testing.T) {
 	}
 }
 
+func TestHasConflicts(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "x\n", nil
+	}}
+	conflict, err := HasConflicts(fr, "/repo", "main", "auth@")
+	if err != nil || !conflict {
+		t.Errorf("got %v, %v", conflict, err)
+	}
+	want := `jj log -r (main..auth@) & conflicts() --no-graph -T "x\n"` + "\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestHasConflictsClean(t *testing.T) {
+	fr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", nil
+	}}
+	conflict, err := HasConflicts(fr, "/repo", "main", "auth@")
+	if err != nil || conflict {
+		t.Errorf("got %v, %v", conflict, err)
+	}
+}
+
+func TestHasConflictsError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if _, err := HasConflicts(frErr, "/repo", "main", "auth@"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestSnapshot(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := Snapshot(fr, "/ws-auth"); err != nil {
+		t.Fatal(err)
+	}
+	if got := fr.Calls[0].Dir; got != "/ws-auth" {
+		t.Errorf("snapshot must run inside the workspace, ran in %q", got)
+	}
+}
+
+func TestSnapshotError(t *testing.T) {
+	frErr := &run.FakeRunner{Handler: func(dir, name string, args ...string) (string, error) {
+		return "", errors.New("boom")
+	}}
+	if err := Snapshot(frErr, "/ws-auth"); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func TestWorkspaceRename(t *testing.T) {
 	fr := &run.FakeRunner{}
 	if err := WorkspaceRename(fr, "/ws-auth", "billing"); err != nil {
