@@ -9,10 +9,10 @@ agents. It pairs a [jujutsu (jj)](https://github.com/jj-vcs/jj) workspace with
 a tmux window per feature. It must be run inside tmux, in a jj repo.
 
 - Module: `github.com/richardcase/jumux`
-- Commands: `add <feature>`, `remove [-f] [name]`, `sync [name]`, `list`,
-  `sidebar`, `hook <status>` (dispatched in `main.go`; `sidebar run` is the
-  internal per-pane TUI mode; `hook` is called from Claude Code hooks to
-  record agent liveness)
+- Commands: `add <feature>`, `remove [-f] [name]`, `resurrect`, `sync [name]`,
+  `list`, `sidebar`, `hook <status>` (dispatched in `main.go`; `sidebar run`
+  is the internal per-pane TUI mode; `hook` is called from Claude Code hooks
+  to record agent liveness)
 - Configuration: global `~/.config/jumux/config.toml`, overridden per-repo
   by `.jumux.toml` at the repo root (TOML)
 

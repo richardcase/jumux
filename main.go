@@ -24,6 +24,9 @@ Commands:
   remove [-f] --all-done
                        remove every feature whose recorded agent status is
                        "done"
+  resurrect            recreate tmux windows for every feature workspace
+                       that lost its window (e.g. after a tmux server
+                       crash/restart); never touches jj, safe to re-run
   restart [-f] [name]  restart the configured agent in a feature's tmux
                        window (name defaults to the current feature); asks
                        for confirmation unless the pane looks dead or -f is
@@ -100,6 +103,12 @@ func main() {
 		default:
 			err = a.Remove(fs.Arg(0), *force)
 		}
+	case "resurrect":
+		if len(os.Args) != 2 {
+			fmt.Fprintln(os.Stderr, "usage: jumux resurrect")
+			os.Exit(2)
+		}
+		err = a.Resurrect()
 	case "restart":
 		fs := flag.NewFlagSet("restart", flag.ExitOnError)
 		force := fs.Bool("force", false, "skip the alive-pane confirmation")

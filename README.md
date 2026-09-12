@@ -12,6 +12,7 @@ feature.
 jumux add <feature>       create a jj workspace + tmux window, start the agent
                           (-a/--agent overrides the agent; -t/--template applies a preset)
 jumux remove [-f] [name]  tear a feature down (defaults to the current one)
+jumux resurrect           recreate tmux windows lost to a tmux crash/restart
 jumux sync [name]         re-apply configured files.copy/files.symlink to a workspace
 jumux rebase [feature]    rebase a feature's workspace onto its base revision
                           (--onto REV rebases onto REV instead)

@@ -17,7 +17,7 @@ const bashCompletion = `_jumux_complete() {
     cmd="${COMP_WORDS[1]}"
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=( $(compgen -W "add remove restart sync rename rebase attach pr mr list sidebar hook doctor config completion help" -- "$cur") )
+        COMPREPLY=( $(compgen -W "add remove resurrect restart sync rename rebase attach pr mr list sidebar hook doctor config completion help" -- "$cur") )
         return 0
     fi
 
@@ -48,7 +48,7 @@ const zshCompletion = `#compdef jumux
 
 _jumux() {
     local -a commands
-    commands=(add remove restart sync rename rebase attach pr mr list sidebar hook doctor config completion help)
+    commands=(add remove resurrect restart sync rename rebase attach pr mr list sidebar hook doctor config completion help)
 
     if (( CURRENT == 2 )); then
         _describe 'command' commands
@@ -89,7 +89,7 @@ const fishCompletion = `function __jumux_features
 end
 
 complete -c jumux -f
-complete -c jumux -n "__fish_use_subcommand" -a "add remove restart sync rename rebase attach pr mr list sidebar hook doctor config completion help"
+complete -c jumux -n "__fish_use_subcommand" -a "add remove resurrect restart sync rename rebase attach pr mr list sidebar hook doctor config completion help"
 complete -c jumux -n "__fish_seen_subcommand_from remove restart sync attach rename rebase pr mr" -a "(__jumux_features)"
 complete -c jumux -n "__fish_seen_subcommand_from hook" -a "working waiting done blocked error"
 complete -c jumux -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
