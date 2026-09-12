@@ -126,14 +126,38 @@ func Rebase(r run.Runner, dir, rev, dest string) error {
 	return err
 }
 
-// HasConflict reports whether rev is a conflicted commit.
+// HasConflict reports whether rev currently has an unresolved conflict.
 func HasConflict(r run.Runner, dir, rev string) (bool, error) {
-	out, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph",
-		"-T", `if(conflict, "conflict", "clean")`)
+	out, err := r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", `if(conflict, "conflict")`)
 	if err != nil {
 		return false, err
 	}
 	return strings.Contains(out, "conflict"), nil
+}
+
+// HasConflicts reports whether any commit unique to rev (not already
+// reachable from base) is conflicted. A clean tip doesn't imply a clean
+// ancestor, so this checks the whole (base..rev) range rather than just
+// rev itself.
+func HasConflicts(r run.Runner, dir, base, rev string) (bool, error) {
+	revset := fmt.Sprintf("(%s..%s) & conflicts()", base, rev)
+	out, err := r.Run(dir, "jj", "log", "-r", revset, "--no-graph", "-T", `"x\n"`)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(out) != "", nil
+}
+
+// Snapshot records wsPath's current on-disk contents into its working-copy
+// commit, without querying or changing anything else. Every jj invocation
+// snapshots first, so any read-only command run inside the workspace has
+// this effect; it exists as its own step because commands that must see a
+// feature's up-to-date tip (like Rebase) run in the main workspace root,
+// where pending edits in a secondary workspace aren't visible until they've
+// been snapshotted this way.
+func Snapshot(r run.Runner, wsPath string) error {
+	_, err := r.Run(wsPath, "jj", "log", "-r", "@", "--no-graph", "-T", `""`)
+	return err
 }
 
 // BookmarkSet sets bookmark name to point at rev.
