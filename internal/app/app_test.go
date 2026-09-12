@@ -643,7 +643,7 @@ func TestRebaseHappyPath(t *testing.T) {
 	if err := f.app.Rebase("auth", ""); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj rebase -r auth@ -d trunk()")
+	f.assertRan(t, "jj rebase -b auth@ -d trunk()")
 	if !strings.Contains(f.out.String(), `rebased "auth" onto trunk()`) {
 		t.Errorf("expected a success message, got: %s", f.out.String())
 	}
@@ -654,17 +654,17 @@ func TestRebaseWithOnto(t *testing.T) {
 	if err := f.app.Rebase("auth", "main"); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj rebase -r auth@ -d main")
+	f.assertRan(t, "jj rebase -b auth@ -d main")
 	f.assertNotRan(t, "-d trunk()")
 }
 
 func TestRebaseFallsBackToParentWhenTrunkFails(t *testing.T) {
 	f := newFixture(t)
-	f.failOn = "jj rebase -r auth@ -d trunk()"
+	f.failOn = "jj rebase -b auth@ -d trunk()"
 	if err := f.app.Rebase("auth", ""); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj rebase -r auth@ -d @-")
+	f.assertRan(t, "jj rebase -b auth@ -d @-")
 	if !strings.Contains(f.err.String(), "warning:") {
 		t.Errorf("expected a warning about the fallback, got: %s", f.err.String())
 	}
@@ -672,7 +672,7 @@ func TestRebaseFallsBackToParentWhenTrunkFails(t *testing.T) {
 
 func TestRebaseDoesNotFallBackWithExplicitOnto(t *testing.T) {
 	f := newFixture(t)
-	f.failOn = "jj rebase -r auth@ -d main"
+	f.failOn = "jj rebase -b auth@ -d main"
 	err := f.app.Rebase("auth", "main")
 	if err == nil || !strings.Contains(err.Error(), "scripted failure") {
 		t.Fatalf("expected the original error, got %v", err)
@@ -712,7 +712,7 @@ func TestRebaseInfersFeatureFromWindowTag(t *testing.T) {
 	if err := f.app.Rebase("", ""); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj rebase -r auth@ -d trunk()")
+	f.assertRan(t, "jj rebase -b auth@ -d trunk()")
 }
 
 func TestRenameWithoutWindowSkipsTmuxRename(t *testing.T) {
