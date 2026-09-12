@@ -47,6 +47,8 @@ Commands:
                        --onto rebases onto REV instead)
   attach <feature>     switch the tmux client to a feature's existing
                        window, without touching jj or workspace state
+  path [feature]       print the filesystem path of a feature workspace
+                       (feature defaults to the current feature)
   pr [feature]         push feature's bookmark and open a GitHub PR
                        (feature defaults to the current feature)
   mr [feature]         push feature's bookmark and open a GitLab MR
@@ -172,6 +174,18 @@ func main() {
 			os.Exit(2)
 		}
 		err = a.Attach(fs.Arg(0))
+	case "path":
+		fs := flag.NewFlagSet("path", flag.ExitOnError)
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "usage: jumux path [feature]")
+			os.Exit(2)
+		}
+		feature := ""
+		if fs.NArg() == 1 {
+			feature = fs.Arg(0)
+		}
+		err = a.Path(feature)
 	case "pr":
 		fs := flag.NewFlagSet("pr", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])

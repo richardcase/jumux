@@ -17,6 +17,7 @@ jumux resurrect           recreate tmux windows lost to a tmux crash/restart
 jumux sync [name]         re-apply configured files.copy/files.symlink to a workspace
 jumux rebase [feature]    rebase a feature's workspace onto its base revision
                           (--onto REV rebases onto REV instead)
+jumux path [feature]      print a feature workspace's filesystem path
 jumux list                show feature workspaces and their tmux windows
 jumux pr [feature]        push the feature's bookmark and open a GitHub PR
 jumux mr [feature]        push the feature's bookmark and open a GitLab MR
