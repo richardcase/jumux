@@ -99,6 +99,11 @@ func (a *App) Add(feature, agentOverride, template string) error {
 		rollbackAll()
 		return err
 	}
+	if err := runHooks(a.HookRunner, wsPath, ctx.Config.PostCreateHooks, ctx.Config.HookTimeout(),
+		hookEnv("post_create", feature, wsPath, ctx.MainRoot, windowName)); err != nil {
+		rollbackAll()
+		return err
+	}
 	if err := tmuxctl.SendCommand(a.Runner, windowID, ctx.Config.AgentCommand(feature, agentOverride)); err != nil {
 		rollbackAll()
 		return err
