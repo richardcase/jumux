@@ -397,6 +397,26 @@ func TestRemoveDirtyDeclinedAndForced(t *testing.T) {
 	f2.assertNotRan(t, "jj log")
 }
 
+func TestRemoveDeclinedConfirmationSkipsPreRemoveHooks(t *testing.T) {
+	f := newFixture(t)
+	f.responses["jj log"] = "dirty"
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.app.In = strings.NewReader("n\n")
+	if err := f.app.Remove("auth", false); err == nil || !strings.Contains(err.Error(), "aborted") {
+		t.Fatalf("expected abort, got %v", err)
+	}
+	if len(f.hookRunner.Calls) != 0 {
+		t.Errorf("declining the confirmation must not run pre_remove_hooks, got %+v", f.hookRunner.Calls)
+	}
+	f.assertNotRan(t, "workspace forget")
+}
+
 func TestRemoveRefusesDefault(t *testing.T) {
 	f := newFixture(t)
 	if err := f.app.Remove("default", false); err == nil || !strings.Contains(err.Error(), "default") {
@@ -438,6 +458,27 @@ func TestRemoveTargetIgnoresCwd(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+}
+
+func TestRemoveTargetDeclinedConfirmationSkipsPreRemoveHooks(t *testing.T) {
+	f := newFixture(t)
+	f.responses["jj log"] = "dirty"
+	if err := os.MkdirAll(f.wsPath("auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.app.In = strings.NewReader("n\n")
+	target := sidebar.Target{Feature: "auth", MainRoot: f.mainRoot, WindowID: "@2"}
+	if err := f.app.RemoveTarget(target, false); err == nil || !strings.Contains(err.Error(), "aborted") {
+		t.Fatalf("expected abort, got %v", err)
+	}
+	if len(f.hookRunner.Calls) != 0 {
+		t.Errorf("declining the confirmation must not run pre_remove_hooks, got %+v", f.hookRunner.Calls)
+	}
+	f.assertNotRan(t, "workspace forget")
 }
 
 // TestRemoveTargetTwoReposSameFeatureName is the issue #60 regression case:

@@ -59,6 +59,22 @@ func (a *App) Remove(name string, force bool) error {
 		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
 	}
 
+	if inList && dirExists && !force {
+		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
+		if err != nil {
+			return err
+		}
+		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; remove anyway?", name)) {
+			return fmt.Errorf("aborted")
+		}
+	}
+
+	// Pre-remove hooks run only once removal is actually going ahead (after
+	// any decline-to-confirm has already returned), so a hook with real
+	// side effects (tearing down a dev environment, freeing external
+	// resources) never fires for a removal the user cancelled. They still
+	// run regardless of -f/--force (force only bypasses the prompt above)
+	// and before anything destructive below.
 	windowName := ""
 	if windowFound {
 		windowName = window.Name
@@ -67,16 +83,6 @@ func (a *App) Remove(name string, force bool) error {
 		if err := runHooks(a.HookRunner, wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
 			hookEnv("pre_remove", name, wsPath, ctx.MainRoot, windowName)); err != nil {
 			return err
-		}
-	}
-
-	if inList && dirExists && !force {
-		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
-		if err != nil {
-			return err
-		}
-		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; remove anyway?", name)) {
-			return fmt.Errorf("aborted")
 		}
 	}
 
@@ -145,18 +151,6 @@ func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
 		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
 	}
 
-	// Unlike Remove, RemoveTarget only has an opaque tmux window ID
-	// (target.WindowID, e.g. "@7"), never an actual window name, so passing
-	// it as windowName would put a structurally different kind of value
-	// into JUMUX_WINDOW_NAME depending on which path removed the workspace.
-	// Pass "" so hookEnv omits the var entirely rather than lie about it.
-	if dirExists {
-		if err := runHooks(a.HookRunner, wsPath, cfg.PreRemoveHooks, cfg.HookTimeout(),
-			hookEnv("pre_remove", name, wsPath, target.MainRoot, "")); err != nil {
-			return err
-		}
-	}
-
 	if inList && dirExists && !force {
 		dirty, err := jj.IsDirty(a.Runner, wsPath, name)
 		if err != nil {
@@ -164,6 +158,21 @@ func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
 		}
 		if dirty && !a.confirm(fmt.Sprintf("workspace %q has changes in its working-copy commit; remove anyway?", name)) {
 			return fmt.Errorf("aborted")
+		}
+	}
+
+	// Pre-remove hooks run only once removal is actually going ahead (after
+	// any decline-to-confirm has already returned) — see the matching
+	// comment in Remove. Unlike Remove, RemoveTarget only has an opaque
+	// tmux window ID (target.WindowID, e.g. "@7"), never an actual window
+	// name, so passing it as windowName would put a structurally different
+	// kind of value into JUMUX_WINDOW_NAME depending on which path removed
+	// the workspace. Pass "" so hookEnv omits the var entirely rather than
+	// lie about it.
+	if dirExists {
+		if err := runHooks(a.HookRunner, wsPath, cfg.PreRemoveHooks, cfg.HookTimeout(),
+			hookEnv("pre_remove", name, wsPath, target.MainRoot, "")); err != nil {
+			return err
 		}
 	}
 
