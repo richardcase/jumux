@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/richardcase/jumux/internal/agentstate"
+	"github.com/richardcase/jumux/internal/config"
 	"github.com/richardcase/jumux/internal/jj"
 	"github.com/richardcase/jumux/internal/sidebar"
 	"github.com/richardcase/jumux/internal/tmuxctl"
@@ -56,6 +57,15 @@ func (a *App) Remove(name string, force bool) error {
 
 	if !inList && !dirExists && !windowFound {
 		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
+	}
+
+	windowName := ""
+	if windowFound {
+		windowName = window.Name
+	}
+	if err := runHooks(a.HookRunner, wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
+		hookEnv("pre_remove", name, wsPath, ctx.MainRoot, windowName)); err != nil {
+		return err
 	}
 
 	if inList && dirExists && !force {
@@ -119,6 +129,10 @@ func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
 	if err != nil {
 		return err
 	}
+	cfg, err := config.Load(a.GlobalConfig, target.MainRoot)
+	if err != nil {
+		return err
+	}
 	wsPath := a.workspacePath(target.MainRoot, name)
 	inList := contains(names, name)
 	_, statErr := os.Stat(wsPath)
@@ -127,6 +141,11 @@ func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
 
 	if !inList && !dirExists && !windowFound {
 		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
+	}
+
+	if err := runHooks(a.HookRunner, wsPath, cfg.PreRemoveHooks, cfg.HookTimeout(),
+		hookEnv("pre_remove", name, wsPath, target.MainRoot, target.WindowID)); err != nil {
+		return err
 	}
 
 	if inList && dirExists && !force {

@@ -1047,3 +1047,78 @@ func TestAddTemplatePostCreateHooksOverrideGlobal(t *testing.T) {
 		t.Fatalf("unexpected hook calls: %+v", f.hookRunner.Calls)
 	}
 }
+
+func TestRemoveRunsPreRemoveHooksBeforeForget(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Remove("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 1 || f.hookRunner.Calls[0].Command != "./check.sh" {
+		t.Fatalf("unexpected hook calls: %+v", f.hookRunner.Calls)
+	}
+	if f.hookRunner.Calls[0].Dir != ws {
+		t.Errorf("hook should run in the workspace dir, got %q", f.hookRunner.Calls[0].Dir)
+	}
+	f.assertRan(t, "jj workspace forget auth")
+}
+
+func TestRemoveAbortsWhenPreRemoveHookFails(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.hookRunner.Err = errors.New("scripted hook failure")
+	err := f.app.Remove("auth", false)
+	if err == nil || !strings.Contains(err.Error(), "scripted hook failure") {
+		t.Fatalf("got %v", err)
+	}
+	f.assertNotRan(t, "jj workspace forget", "kill-window")
+	if _, statErr := os.Stat(ws); statErr != nil {
+		t.Errorf("workspace dir should still exist, stat error: %v", statErr)
+	}
+}
+
+func TestRemoveRunsPreRemoveHooksEvenWithForce(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "pre_remove_hooks = [\"./check.sh\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Remove("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 1 {
+		t.Errorf("expected the pre-remove hook to run even with force=true, got %+v", f.hookRunner.Calls)
+	}
+}
+
+func TestRemoveNoHooksConfiguredSkipsHookRunner(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Remove("auth", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 0 {
+		t.Errorf("expected no hook calls, got %+v", f.hookRunner.Calls)
+	}
+}
