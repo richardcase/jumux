@@ -27,7 +27,7 @@ func TestCompletionScripts(t *testing.T) {
 				}
 			}
 			// Every feature-taking command should be wired into the script.
-			for _, cmd := range []string{"remove", "restart", "attach", "rename"} {
+			for _, cmd := range []string{"remove", "restart", "attach", "rename", "path"} {
 				if !strings.Contains(out, cmd) {
 					t.Errorf("%s completion missing command %q:\n%s", tt.shell, cmd, out)
 				}
