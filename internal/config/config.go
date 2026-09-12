@@ -46,6 +46,9 @@ type Config struct {
 	// PreRemoveHooks are shell commands run in the workspace directory
 	// before any destructive removal step. Run regardless of -f/--force;
 	// the first failure aborts the removal before anything is deleted.
+	// They only run when the workspace directory still exists, so a
+	// partial-state cleanup (e.g. a stale jj workspace entry or tmux window
+	// whose directory is already gone) is never blocked by a hook.
 	PreRemoveHooks []string `toml:"pre_remove_hooks"`
 	// HookTimeoutSeconds bounds how long a single hook command may run
 	// before it is killed. 0 disables the timeout. Unset (absent from

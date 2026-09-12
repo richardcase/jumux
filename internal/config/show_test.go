@@ -28,7 +28,7 @@ func TestShowReportsGlobalAndRepoSources(t *testing.T) {
 	if err := os.Mkdir(repoRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	write(t, filepath.Join(repoRoot, RepoFileName), "base_revision = \"main\"\n")
+	write(t, filepath.Join(repoRoot, RepoFileName), "base_revision = \"main\"\npost_create_hooks = [\"npm install\"]\n")
 
 	cfg, fields, err := Show(global, repoRoot)
 	if err != nil {
@@ -53,6 +53,15 @@ func TestShowReportsGlobalAndRepoSources(t *testing.T) {
 	}
 	if got := byKey["window_prefix"]; got.Source != SourceDefault {
 		t.Errorf("window_prefix field = %+v, want default", got)
+	}
+	if got := byKey["post_create_hooks"]; got.Source != SourceRepo || got.Value != "npm install" {
+		t.Errorf("post_create_hooks field = %+v", got)
+	}
+	if got := byKey["pre_remove_hooks"]; got.Source != SourceDefault || got.Value != "" {
+		t.Errorf("pre_remove_hooks field = %+v, want default/empty", got)
+	}
+	if got := byKey["hook_timeout_seconds"]; got.Source != SourceDefault || got.Value != "300" {
+		t.Errorf("hook_timeout_seconds field = %+v, want default/300", got)
 	}
 }
 

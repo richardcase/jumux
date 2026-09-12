@@ -63,9 +63,11 @@ func (a *App) Remove(name string, force bool) error {
 	if windowFound {
 		windowName = window.Name
 	}
-	if err := runHooks(a.HookRunner, wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
-		hookEnv("pre_remove", name, wsPath, ctx.MainRoot, windowName)); err != nil {
-		return err
+	if dirExists {
+		if err := runHooks(a.HookRunner, wsPath, ctx.Config.PreRemoveHooks, ctx.Config.HookTimeout(),
+			hookEnv("pre_remove", name, wsPath, ctx.MainRoot, windowName)); err != nil {
+			return err
+		}
 	}
 
 	if inList && dirExists && !force {
@@ -143,9 +145,16 @@ func (a *App) RemoveTarget(target sidebar.Target, force bool) error {
 		return fmt.Errorf("nothing to remove for feature %q: no workspace, directory, or tmux window found", name)
 	}
 
-	if err := runHooks(a.HookRunner, wsPath, cfg.PreRemoveHooks, cfg.HookTimeout(),
-		hookEnv("pre_remove", name, wsPath, target.MainRoot, target.WindowID)); err != nil {
-		return err
+	// Unlike Remove, RemoveTarget only has an opaque tmux window ID
+	// (target.WindowID, e.g. "@7"), never an actual window name, so passing
+	// it as windowName would put a structurally different kind of value
+	// into JUMUX_WINDOW_NAME depending on which path removed the workspace.
+	// Pass "" so hookEnv omits the var entirely rather than lie about it.
+	if dirExists {
+		if err := runHooks(a.HookRunner, wsPath, cfg.PreRemoveHooks, cfg.HookTimeout(),
+			hookEnv("pre_remove", name, wsPath, target.MainRoot, "")); err != nil {
+			return err
+		}
 	}
 
 	if inList && dirExists && !force {

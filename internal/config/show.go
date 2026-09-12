@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/BurntSushi/toml"
@@ -88,6 +89,9 @@ func Show(globalPath, repoRoot string) (Config, []Field, error) {
 		{"notify_quiet_start", cfg.NotifyQuietStart, source("notify_quiet_start")},
 		{"notify_quiet_end", cfg.NotifyQuietEnd, source("notify_quiet_end")},
 		{"notify_webhook", cfg.NotifyWebhook, source("notify_webhook")},
+		{"post_create_hooks", strings.Join(cfg.PostCreateHooks, ", "), source("post_create_hooks")},
+		{"pre_remove_hooks", strings.Join(cfg.PreRemoveHooks, ", "), source("pre_remove_hooks")},
+		{"hook_timeout_seconds", strconv.Itoa(cfg.HookTimeoutSeconds), source("hook_timeout_seconds")},
 	}
 	return cfg, fields, nil
 }
