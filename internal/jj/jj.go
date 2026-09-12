@@ -149,9 +149,13 @@ func Description(r run.Runner, dir, rev string) (string, error) {
 	return r.Run(dir, "jj", "log", "-r", rev, "--no-graph", "-T", "description")
 }
 
-// Rebase moves rev onto newParent.
+// Rebase moves the whole branch (stack) containing rev onto newParent: every
+// commit that is an ancestor of rev but not already an ancestor of
+// newParent. Using "-b" (branch) rather than "-r" (single revision) is
+// required so that a feature workspace with multiple commits keeps its
+// earlier commits instead of losing them to the old base.
 func Rebase(r run.Runner, dir, rev, newParent string) error {
-	_, err := r.Run(dir, "jj", "rebase", "-r", rev, "-d", newParent)
+	_, err := r.Run(dir, "jj", "rebase", "-b", rev, "-d", newParent)
 	return err
 }
 

@@ -236,7 +236,7 @@ func TestRebase(t *testing.T) {
 	if got := fr.Calls[0].Dir; got != "/ws-auth" {
 		t.Errorf("rebase must run inside the workspace, ran in %q", got)
 	}
-	want := "jj rebase -r auth@ -d trunk()\n"
+	want := "jj rebase -b auth@ -d trunk()\n"
 	if got := fr.CommandLines(); got != want {
 		t.Errorf("CommandLines() = %q, want %q", got, want)
 	}
