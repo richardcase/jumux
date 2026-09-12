@@ -38,6 +38,19 @@ type Config struct {
 	// NotifyWebhook, if set, is a URL that notifications are POSTed to
 	// (as JSON) in addition to the OS desktop notification.
 	NotifyWebhook string `toml:"notify_webhook"`
+	// PostCreateHooks are shell commands run in the new workspace directory
+	// after the tmux window is created but before the agent starts. Run in
+	// order; the first failure aborts `add` (rolling back the workspace and
+	// window) and stops the remaining commands.
+	PostCreateHooks []string `toml:"post_create_hooks"`
+	// PreRemoveHooks are shell commands run in the workspace directory
+	// before any destructive removal step. Run regardless of -f/--force;
+	// the first failure aborts the removal before anything is deleted.
+	PreRemoveHooks []string `toml:"pre_remove_hooks"`
+	// HookTimeoutSeconds bounds how long a single hook command may run
+	// before it is killed. 0 disables the timeout. Unset (absent from
+	// every config file) defaults to 300s via defaults().
+	HookTimeoutSeconds int `toml:"hook_timeout_seconds"`
 	// Templates are named presets bundling base_revision/agent/window
 	// options for a recurring kind of feature, selected via
 	// `jumux add --template <name>`. A template defined in the repo file
@@ -63,15 +76,19 @@ type Template struct {
 	BaseRevision string `toml:"base_revision"`
 	SelectWindow *bool  `toml:"select_window"`
 	WindowPrefix string `toml:"window_prefix"`
+	// PostCreateHooks, when set, fully replaces Config.PostCreateHooks for
+	// features created with this template.
+	PostCreateHooks []string `toml:"post_create_hooks"`
 }
 
 func defaults() Config {
 	return Config{
-		Agent:           "claude",
-		BaseRevision:    DefaultBaseRevision,
-		SidebarWidth:    32,
-		SidebarRefresh:  2,
-		StaleAfterHours: 168, // 7 days
+		Agent:              "claude",
+		BaseRevision:       DefaultBaseRevision,
+		SidebarWidth:       32,
+		SidebarRefresh:     2,
+		StaleAfterHours:    168, // 7 days
+		HookTimeoutSeconds: 300,
 	}
 }
 
@@ -157,6 +174,9 @@ func (c Config) WithTemplate(name string) (Config, error) {
 	if t.WindowPrefix != "" {
 		out.WindowPrefix = t.WindowPrefix
 	}
+	if t.PostCreateHooks != nil {
+		out.PostCreateHooks = t.PostCreateHooks
+	}
 	return out, nil
 }
 
@@ -217,4 +237,13 @@ func (c Config) StaleThreshold() (time.Duration, bool) {
 		return 0, false
 	}
 	return time.Duration(c.StaleAfterHours) * time.Hour, true
+}
+
+// HookTimeout returns how long a single lifecycle hook command may run
+// before being killed. hook_timeout_seconds <= 0 disables the timeout.
+func (c Config) HookTimeout() time.Duration {
+	if c.HookTimeoutSeconds <= 0 {
+		return 0
+	}
+	return time.Duration(c.HookTimeoutSeconds) * time.Second
 }
