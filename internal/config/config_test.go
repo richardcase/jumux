@@ -296,3 +296,97 @@ func TestAgentCommandOverride(t *testing.T) {
 		t.Errorf("empty override should fall back to configured agent, got %q", got)
 	}
 }
+
+func TestLoadDefaultsIncludesHookTimeout(t *testing.T) {
+	cfg, err := Load("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.HookTimeout(); got != 300*time.Second {
+		t.Errorf("default hook timeout = %v, want 300s", got)
+	}
+	if len(cfg.PostCreateHooks) != 0 || len(cfg.PreRemoveHooks) != 0 {
+		t.Errorf("expected no hooks by default: %+v", cfg)
+	}
+}
+
+func TestHookTimeoutZeroDisables(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "hook_timeout_seconds = 0\n")
+	cfg, err := Load(global, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.HookTimeout(); got != 0 {
+		t.Errorf("explicit 0 should disable the timeout, got %v", got)
+	}
+}
+
+func TestLoadParsesHooks(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "post_create_hooks = [\"npm install\"]\npre_remove_hooks = [\"./check.sh\"]\nhook_timeout_seconds = 30\n")
+	cfg, err := Load(global, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.PostCreateHooks) != 1 || cfg.PostCreateHooks[0] != "npm install" {
+		t.Errorf("unexpected post_create_hooks: %+v", cfg.PostCreateHooks)
+	}
+	if len(cfg.PreRemoveHooks) != 1 || cfg.PreRemoveHooks[0] != "./check.sh" {
+		t.Errorf("unexpected pre_remove_hooks: %+v", cfg.PreRemoveHooks)
+	}
+	if cfg.HookTimeout() != 30*time.Second {
+		t.Errorf("unexpected hook timeout: %v", cfg.HookTimeout())
+	}
+}
+
+func TestLoadRepoHooksOverrideGlobal(t *testing.T) {
+	dir := t.TempDir()
+	global := filepath.Join(dir, "global.toml")
+	write(t, global, "post_create_hooks = [\"echo global\"]\n")
+	repoRoot := filepath.Join(dir, "repo")
+	if err := os.Mkdir(repoRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(repoRoot, RepoFileName), "post_create_hooks = [\"echo repo\"]\n")
+
+	cfg, err := Load(global, repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.PostCreateHooks) != 1 || cfg.PostCreateHooks[0] != "echo repo" {
+		t.Errorf("repo post_create_hooks should fully replace global, got %+v", cfg.PostCreateHooks)
+	}
+}
+
+func TestWithTemplateOverridesPostCreateHooks(t *testing.T) {
+	c := Config{
+		PostCreateHooks: []string{"echo base"},
+		Templates: map[string]Template{
+			"bugfix": {PostCreateHooks: []string{"echo template"}},
+		},
+	}
+	out, err := c.WithTemplate("bugfix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.PostCreateHooks) != 1 || out.PostCreateHooks[0] != "echo template" {
+		t.Errorf("template post_create_hooks should replace base, got %+v", out.PostCreateHooks)
+	}
+}
+
+func TestWithTemplateLeavesPostCreateHooksAloneWhenUnset(t *testing.T) {
+	c := Config{
+		PostCreateHooks: []string{"echo base"},
+		Templates:       map[string]Template{"bugfix": {BaseRevision: "main"}},
+	}
+	out, err := c.WithTemplate("bugfix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.PostCreateHooks) != 1 || out.PostCreateHooks[0] != "echo base" {
+		t.Errorf("unset template post_create_hooks should not clear base, got %+v", out.PostCreateHooks)
+	}
+}
