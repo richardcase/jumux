@@ -4,9 +4,12 @@ package run
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Runner executes an external command in dir and returns its trimmed stdout.
@@ -29,4 +32,35 @@ func (ExecRunner) Run(dir, name string, args ...string) (string, error) {
 			name, strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+// HookRunner executes a user-configured lifecycle hook command, streaming
+// its output live and enforcing an optional timeout.
+type HookRunner interface {
+	RunHook(dir, command string, env []string, timeout time.Duration) error
+}
+
+// ExecHookRunner runs hook commands with os/exec via "sh -c".
+type ExecHookRunner struct{}
+
+func (ExecHookRunner) RunHook(dir, command string, env []string, timeout time.Duration) error {
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("hook command %q timed out after %s", command, timeout)
+	}
+	if err != nil {
+		return fmt.Errorf("hook command %q: %w", command, err)
+	}
+	return nil
 }
