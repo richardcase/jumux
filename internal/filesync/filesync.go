@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Apply resolves copyGlobs and symlinkGlobs (via filepath.Glob, relative to
@@ -39,6 +40,10 @@ func applyOne(mainRoot, wsPath, pattern string, do func(src, dst string) error, 
 			_, _ = fmt.Fprintf(warnw, "filesync: %v\n", err)
 			continue
 		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+			_, _ = fmt.Fprintf(warnw, "filesync: pattern %q resolves outside the repo root, skipping\n", pattern)
+			continue
+		}
 		dst := filepath.Join(wsPath, rel)
 		if _, err := os.Lstat(dst); err == nil {
 			_, _ = fmt.Fprintf(warnw, "filesync: %s already exists, skipping\n", rel)
@@ -51,9 +56,12 @@ func applyOne(mainRoot, wsPath, pattern string, do func(src, dst string) error, 
 }
 
 func copyEntry(src, dst string) error {
-	info, err := os.Stat(src)
+	info, err := os.Lstat(src)
 	if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return copySymlink(src, dst)
 	}
 	if info.IsDir() {
 		return copyDir(src, dst)
@@ -71,6 +79,9 @@ func copyDir(src, dst string) error {
 			return err
 		}
 		target := filepath.Join(dst, rel)
+		if d.Type()&os.ModeSymlink != 0 {
+			return copySymlink(path, target)
+		}
 		if d.IsDir() {
 			info, err := d.Info()
 			if err != nil {
@@ -84,6 +95,21 @@ func copyDir(src, dst string) error {
 		}
 		return copyFile(path, target, info.Mode())
 	})
+}
+
+// copySymlink recreates the symlink at src, verbatim (same link target,
+// not dereferenced), at dst. Used instead of copyFile/copyDir whenever the
+// source entry is itself a symlink, so copying never silently changes a
+// symlink's permissions or follows it into a directory.
+func copySymlink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return os.Symlink(target, dst)
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {
