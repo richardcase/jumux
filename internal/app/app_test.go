@@ -19,10 +19,11 @@ import (
 // App whose runner answers the common jj/tmux queries. Tests tweak the
 // handler map or App fields as needed.
 type fixture struct {
-	app      *App
-	runner   *run.FakeRunner
-	mainRoot string
-	out, err *bytes.Buffer
+	app        *App
+	runner     *run.FakeRunner
+	hookRunner *run.FakeHookRunner
+	mainRoot   string
+	out, err   *bytes.Buffer
 	// scripted responses, keyed by command prefix (first match wins)
 	responses map[string]string
 	failOn    string // command prefix that returns an error
@@ -63,12 +64,14 @@ func newFixture(t *testing.T) *fixture {
 		}
 		return "", nil
 	}}
+	f.hookRunner = &run.FakeHookRunner{}
 	f.app = &App{
-		Runner: f.runner,
-		Out:    f.out,
-		Errw:   f.err,
-		In:     strings.NewReader(""),
-		Getwd:  func() (string, error) { return mainRoot, nil },
+		Runner:     f.runner,
+		HookRunner: f.hookRunner,
+		Out:        f.out,
+		Errw:       f.err,
+		In:         strings.NewReader(""),
+		Getwd:      func() (string, error) { return mainRoot, nil },
 		Getenv: func(k string) string {
 			switch k {
 			case "TMUX":
@@ -982,5 +985,65 @@ func TestListSurfacesIdleFeatures(t *testing.T) {
 	}
 	if strings.Contains(lines["fresh"], "(idle)") {
 		t.Errorf("fresh row should not be marked idle: %q", lines["fresh"])
+	}
+}
+
+func TestAddRunsPostCreateHooksBeforeAgentStarts(t *testing.T) {
+	f := newFixture(t)
+	cfg := "post_create_hooks = [\"npm install\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Add("billing", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 1 || f.hookRunner.Calls[0].Command != "npm install" {
+		t.Fatalf("unexpected hook calls: %+v", f.hookRunner.Calls)
+	}
+	if f.hookRunner.Calls[0].Dir != f.wsPath("billing") {
+		t.Errorf("hook should run in the workspace dir, got %q", f.hookRunner.Calls[0].Dir)
+	}
+	// The hook must run before the agent is sent to tmux.
+	if idx := strings.Index(f.runner.CommandLines(), "tmux send-keys"); idx == -1 {
+		t.Fatal("expected the agent send-keys command to have run")
+	}
+}
+
+func TestAddRollsBackWhenPostCreateHookFails(t *testing.T) {
+	f := newFixture(t)
+	cfg := "post_create_hooks = [\"exit 1\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f.hookRunner.Err = errors.New("scripted hook failure")
+	err := f.app.Add("billing", "", "")
+	if err == nil || !strings.Contains(err.Error(), "scripted hook failure") {
+		t.Fatalf("got %v", err)
+	}
+	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget billing")
+	f.assertNotRan(t, "tmux send-keys")
+}
+
+func TestAddNoHooksConfiguredSkipsHookRunner(t *testing.T) {
+	f := newFixture(t)
+	if err := f.app.Add("billing", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 0 {
+		t.Errorf("expected no hook calls, got %+v", f.hookRunner.Calls)
+	}
+}
+
+func TestAddTemplatePostCreateHooksOverrideGlobal(t *testing.T) {
+	f := newFixture(t)
+	cfg := "post_create_hooks = [\"echo global\"]\n[templates.bugfix]\npost_create_hooks = [\"echo template\"]\n"
+	if err := os.WriteFile(filepath.Join(f.mainRoot, ".jumux.toml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.app.Add("billing", "", "bugfix"); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.hookRunner.Calls) != 1 || f.hookRunner.Calls[0].Command != "echo template" {
+		t.Fatalf("unexpected hook calls: %+v", f.hookRunner.Calls)
 	}
 }

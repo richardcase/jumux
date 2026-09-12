@@ -22,12 +22,13 @@ var featureNameRe = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9._-]*$`)
 
 // App carries the injectable environment for the commands.
 type App struct {
-	Runner run.Runner
-	Out    io.Writer
-	Errw   io.Writer
-	In     io.Reader
-	Getwd  func() (string, error)
-	Getenv func(string) string
+	Runner     run.Runner
+	HookRunner run.HookRunner
+	Out        io.Writer
+	Errw       io.Writer
+	In         io.Reader
+	Getwd      func() (string, error)
+	Getenv     func(string) string
 	// Executable resolves the path to the running jumux binary, used to
 	// spawn sidebar panes.
 	Executable func() (string, error)
@@ -50,6 +51,7 @@ type App struct {
 func New() *App {
 	return &App{
 		Runner:       run.ExecRunner{},
+		HookRunner:   run.ExecHookRunner{},
 		Out:          os.Stdout,
 		Errw:         os.Stderr,
 		In:           os.Stdin,
