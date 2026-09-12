@@ -43,7 +43,8 @@ Commands:
                        (feature defaults to the current feature)
   mr [feature]         push feature's bookmark and open a GitLab MR
                        (feature defaults to the current feature)
-  list                 show feature workspaces and their tmux windows
+  list [--json]        show feature workspaces, tmux windows, and live agent
+                       status (--json prints the same rows as a JSON array)
   sidebar              toggle a live agent sidebar pane on every tmux window
   hook <status>        record agent status
                        (working|waiting|done|blocked|error); wired to
@@ -172,7 +173,14 @@ func main() {
 		}
 		err = a.MR(feature)
 	case "list":
-		err = a.List()
+		fs := flag.NewFlagSet("list", flag.ExitOnError)
+		jsonOut := fs.Bool("json", false, "print the same rows as a JSON array")
+		_ = fs.Parse(os.Args[2:])
+		if fs.NArg() != 0 {
+			fmt.Fprintln(os.Stderr, "usage: jumux list [--json]")
+			os.Exit(2)
+		}
+		err = a.List(*jsonOut)
 	case "sidebar":
 		fs := flag.NewFlagSet("sidebar", flag.ExitOnError)
 		_ = fs.Parse(os.Args[2:])
