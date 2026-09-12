@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,8 +14,22 @@ import (
 	"github.com/richardcase/jumux/internal/tmuxctl"
 )
 
-// List prints every non-default jj workspace joined with its tmux window.
-func (a *App) List() error {
+// listRow is one feature's rendered fields, shared by the table and JSON
+// output paths.
+type listRow struct {
+	Repo      string `json:"repo,omitempty"`
+	Feature   string `json:"feature"`
+	Workspace string `json:"workspace"`
+	Window    string `json:"window,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	Status    string `json:"status"`
+	Idle      string `json:"idle,omitempty"`
+}
+
+// List prints every non-default jj workspace joined with its tmux window and
+// live agent status. With jsonOut, it prints the same rows as a JSON array
+// instead of a table.
+func (a *App) List(jsonOut bool) error {
 	ctx, err := a.repoContext()
 	if err != nil {
 		return err
@@ -36,20 +51,14 @@ func (a *App) List() error {
 	threshold, staleEnabled := ctx.Config.StaleThreshold()
 	now := a.now()
 	lastHookUpdate := agentstate.LastUpdated(a.StateDir)
+	agentStatus := agentstate.ReadAll(a.StateDir, now)
 	repo := filepath.Base(ctx.MainRoot)
 
-	w := tabwriter.NewWriter(a.Out, 2, 4, 2, ' ', 0)
-	if showRepo {
-		_, _ = fmt.Fprintln(w, "REPO\tFEATURE\tWORKSPACE\tWINDOW\tAGENT\tSTATUS\tIDLE")
-	} else {
-		_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tAGENT\tSTATUS\tIDLE")
-	}
-	count := 0
+	var rows []listRow
 	for _, name := range names {
 		if name == "default" {
 			continue
 		}
-		count++
 		wsPath := a.workspacePath(ctx.MainRoot, name)
 		status := "clean"
 		wsExists := true
@@ -62,11 +71,19 @@ func (a *App) List() error {
 		}
 		windowCol := "-"
 		agentCol := "-"
+		agentJSON := ""
 		win, hasWindow := tmuxctl.FindWindow(windows, name, ctx.Config.WindowPrefix+name)
 		if hasWindow {
 			windowCol = fmt.Sprintf("%s (%s)", win.Name, win.ID)
-			if win.Dead {
+			switch {
+			case win.Dead:
 				agentCol = "dead (jumux restart " + name + ")"
+				agentJSON = "dead"
+			default:
+				if st, ok := agentStatus[win.ID]; ok {
+					agentCol = agentColumn(st)
+					agentJSON = string(st)
+				}
 			}
 		}
 		idleCol := "-"
@@ -75,16 +92,67 @@ func (a *App) List() error {
 				idleCol = formatIdle(now.Sub(last), now.Sub(last) > threshold)
 			}
 		}
+		row := listRow{Feature: name, Workspace: wsPath, Window: windowCol, Agent: agentCol, Status: status, Idle: idleCol}
 		if showRepo {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", repo, name, wsPath, windowCol, agentCol, status, idleCol)
+			row.Repo = repo
+		}
+		if jsonOut {
+			row.Agent = agentJSON
+			if windowCol == "-" {
+				row.Window = ""
+			}
+			if idleCol == "-" {
+				row.Idle = ""
+			}
+			if wsPath == "-" {
+				row.Workspace = ""
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	if jsonOut {
+		if rows == nil {
+			rows = []listRow{}
+		}
+		enc := json.NewEncoder(a.Out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(rows)
+	}
+
+	w := tabwriter.NewWriter(a.Out, 2, 4, 2, ' ', 0)
+	if showRepo {
+		_, _ = fmt.Fprintln(w, "REPO\tFEATURE\tWORKSPACE\tWINDOW\tAGENT\tSTATUS\tIDLE")
+	} else {
+		_, _ = fmt.Fprintln(w, "FEATURE\tWORKSPACE\tWINDOW\tAGENT\tSTATUS\tIDLE")
+	}
+	for _, row := range rows {
+		if showRepo {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Repo, row.Feature, row.Workspace, row.Window, row.Agent, row.Status, row.Idle)
 		} else {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", name, wsPath, windowCol, agentCol, status, idleCol)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", row.Feature, row.Workspace, row.Window, row.Agent, row.Status, row.Idle)
 		}
 	}
-	if count == 0 {
-		return w.Flush() // header only; keep output predictable
-	}
 	return w.Flush()
+}
+
+// agentColumn renders a live agent status for the table's AGENT column,
+// matching the sidebar's status vocabulary (see internal/sidebar/view.go's
+// agentIcon) without the animated spinner used there.
+func agentColumn(status agentstate.Status) string {
+	switch status {
+	case agentstate.Working:
+		return "… working"
+	case agentstate.Waiting:
+		return "? waiting"
+	case agentstate.Done:
+		return "✓ done"
+	case agentstate.Blocked:
+		return "! blocked"
+	case agentstate.Error:
+		return "✗ error"
+	}
+	return "-"
 }
 
 // otherRepoOpen reports whether any jumux-tagged tmux window (any session)

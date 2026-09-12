@@ -596,7 +596,7 @@ func TestListShowsDeadAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.responses["tmux list-windows"] = "@2\tauth\tauth\t1"
-	if err := f.app.List(); err != nil {
+	if err := f.app.List(false); err != nil {
 		t.Fatal(err)
 	}
 	out := f.out.String()
@@ -864,7 +864,7 @@ func TestListJoinsWorkspacesAndWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22\nghost: gg 33"
-	if err := f.app.List(); err != nil {
+	if err := f.app.List(false); err != nil {
 		t.Fatal(err)
 	}
 	out := f.out.String()
@@ -907,7 +907,7 @@ func TestListShowsRepoColumnWhenAnotherRepoOpen(t *testing.T) {
 		}
 		return "", nil
 	}
-	if err := f.app.List(); err != nil {
+	if err := f.app.List(false); err != nil {
 		t.Fatal(err)
 	}
 	out := f.out.String()
@@ -925,7 +925,7 @@ func TestListOmitsRepoColumnForSingleRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.responses["jj workspace list"] = "default: qq 11\nauth: kk 22"
-	if err := f.app.List(); err != nil {
+	if err := f.app.List(false); err != nil {
 		t.Fatal(err)
 	}
 	out := f.out.String()
@@ -966,7 +966,7 @@ func TestListSurfacesIdleFeatures(t *testing.T) {
 			return "", nil
 		}
 	}
-	if err := f.app.List(); err != nil {
+	if err := f.app.List(false); err != nil {
 		t.Fatal(err)
 	}
 	out := f.out.String()
