@@ -83,9 +83,22 @@ func Workspaces(r run.Runner, mainRoot string) ([]string, error) {
 	return names, nil
 }
 
+func workspaceRev(name string) string {
+	if strings.HasPrefix(name, "-") {
+		return strconv.Quote(name) + "@"
+	}
+	return name + "@"
+}
+
 // WorkspaceAdd creates a workspace named name at path, based on rev.
 func WorkspaceAdd(r run.Runner, mainRoot, name, path, rev string) error {
-	_, err := r.Run(mainRoot, "jj", "workspace", "add", "--name", name, "-r", rev, path)
+	nameArg := []string{"--name", name}
+	if strings.HasPrefix(name, "-") {
+		nameArg = []string{"--name=" + name}
+	}
+	args := append([]string{"workspace", "add"}, nameArg...)
+	args = append(args, "-r", rev, path)
+	_, err := r.Run(mainRoot, "jj", args...)
 	return err
 }
 
@@ -94,13 +107,13 @@ func WorkspaceAdd(r run.Runner, mainRoot, name, path, rev string) error {
 // be the workspace's own root (the rename applies to "the current
 // workspace" as jj resolves it from the given directory).
 func WorkspaceRename(r run.Runner, wsPath, newName string) error {
-	_, err := r.Run(wsPath, "jj", "workspace", "rename", newName)
+	_, err := r.Run(wsPath, "jj", "workspace", "rename", "--", newName)
 	return err
 }
 
 // WorkspaceForget removes the workspace from the repo (never deletes commits).
 func WorkspaceForget(r run.Runner, mainRoot, name string) error {
-	_, err := r.Run(mainRoot, "jj", "workspace", "forget", name)
+	_, err := r.Run(mainRoot, "jj", "workspace", "forget", "--", name)
 	return err
 }
 
@@ -108,7 +121,7 @@ func WorkspaceForget(r run.Runner, mainRoot, name string) error {
 // It runs jj inside wsPath so the working copy is snapshotted first,
 // giving an accurate answer.
 func IsDirty(r run.Runner, wsPath, name string) (bool, error) {
-	out, err := r.Run(wsPath, "jj", "log", "-r", name+"@", "--no-graph",
+	out, err := r.Run(wsPath, "jj", "log", "-r", workspaceRev(name), "--no-graph",
 		"-T", `if(empty, "clean", "dirty")`)
 	if err != nil {
 		return false, err
@@ -122,7 +135,11 @@ func IsDirty(r run.Runner, wsPath, name string) (bool, error) {
 // that a feature workspace with multiple commits keeps its earlier commits
 // instead of losing them to the old base.
 func Rebase(r run.Runner, dir, rev, dest string) error {
-	_, err := r.Run(dir, "jj", "rebase", "-b", rev, "-d", dest)
+	revArg := rev
+	if strings.HasPrefix(rev, "-") {
+		revArg = strconv.Quote(strings.TrimSuffix(rev, "@")) + "@"
+	}
+	_, err := r.Run(dir, "jj", "rebase", "-b", revArg, "-d", dest)
 	return err
 }
 
@@ -162,12 +179,20 @@ func Snapshot(r run.Runner, wsPath string) error {
 
 // BookmarkSet sets bookmark name to point at rev.
 func BookmarkSet(r run.Runner, dir, name, rev string) error {
+	if strings.HasPrefix(name, "-") {
+		_, err := r.Run(dir, "jj", "bookmark", "set", "-r", rev, "--", strconv.Quote(name))
+		return err
+	}
 	_, err := r.Run(dir, "jj", "bookmark", "set", name, "-r", rev)
 	return err
 }
 
 // GitPush pushes bookmark to its remote.
 func GitPush(r run.Runner, dir, bookmark string) error {
+	if strings.HasPrefix(bookmark, "-") {
+		_, err := r.Run(dir, "jj", "git", "push", "--bookmark="+strconv.Quote(bookmark))
+		return err
+	}
 	_, err := r.Run(dir, "jj", "git", "push", "--bookmark", bookmark)
 	return err
 }
@@ -176,7 +201,7 @@ func GitPush(r run.Runner, dir, bookmark string) error {
 // (the committer timestamp, which jj updates on every snapshot). It runs in
 // wsPath so the working copy is snapshotted first, like IsDirty.
 func LastChangeTime(r run.Runner, wsPath, name string) (time.Time, error) {
-	out, err := r.Run(wsPath, "jj", "log", "-r", name+"@", "--no-graph",
+	out, err := r.Run(wsPath, "jj", "log", "-r", workspaceRev(name), "--no-graph",
 		"-T", `committer.timestamp().format("%s")`)
 	if err != nil {
 		return time.Time{}, err

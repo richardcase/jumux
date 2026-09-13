@@ -345,7 +345,7 @@ func TestAddRollsBackWorkspaceWhenWindowFails(t *testing.T) {
 	if err := f.app.Add("billing", "", ""); err == nil {
 		t.Fatal("expected error")
 	}
-	f.assertRan(t, "jj workspace add --name billing", "jj workspace forget billing")
+	f.assertRan(t, "jj workspace add --name billing", "jj workspace forget -- billing")
 }
 
 func TestAddRollsBackEverythingWhenSendKeysFails(t *testing.T) {
@@ -354,7 +354,7 @@ func TestAddRollsBackEverythingWhenSendKeysFails(t *testing.T) {
 	if err := f.app.Add("billing", "", ""); err == nil {
 		t.Fatal("expected error")
 	}
-	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget billing")
+	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget -- billing")
 }
 
 func TestRemoveByName(t *testing.T) {
@@ -366,7 +366,24 @@ func TestRemoveByName(t *testing.T) {
 	if err := f.app.Remove("auth", false); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
+	if _, err := os.Stat(ws); !os.IsNotExist(err) {
+		t.Error("workspace dir should be deleted")
+	}
+}
+
+func TestRemoveByNameLeadingHyphen(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("-auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["jj workspace list"] = "default: qq 11\n-auth: kk 22"
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\t-auth\t-auth"
+	if err := f.app.Remove("-auth", false); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t, "jj workspace forget -- -auth", "tmux kill-window -t @2")
 	if _, err := os.Stat(ws); !os.IsNotExist(err) {
 		t.Error("workspace dir should be deleted")
 	}
@@ -393,7 +410,7 @@ func TestRemoveDirtyDeclinedAndForced(t *testing.T) {
 	if err := f2.app.Remove("auth", true); err != nil {
 		t.Fatal(err)
 	}
-	f2.assertRan(t, "jj workspace forget auth")
+	f2.assertRan(t, "jj workspace forget -- auth")
 	f2.assertNotRan(t, "jj log")
 }
 
@@ -439,7 +456,7 @@ func TestRemoveStaleWorkspaceSkipsDirtyCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertNotRan(t, "jj log")
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
 }
 
 // TestRemoveTargetIgnoresCwd asserts that an explicit target acts on its own
@@ -457,7 +474,7 @@ func TestRemoveTargetIgnoresCwd(t *testing.T) {
 	if err := f.app.RemoveTarget(target, true); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
 }
 
 func TestRemoveTargetDeclinedConfirmationSkipsPreRemoveHooks(t *testing.T) {
@@ -539,7 +556,7 @@ func TestRemoveInfersFeatureFromCwd(t *testing.T) {
 	if err := f.app.Remove("", false); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj workspace forget auth")
+	f.assertRan(t, "jj workspace forget -- auth")
 }
 
 func TestRemoveInfersFeatureFromWindowTag(t *testing.T) {
@@ -548,7 +565,7 @@ func TestRemoveInfersFeatureFromWindowTag(t *testing.T) {
 	if err := f.app.Remove("", false); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj workspace forget auth")
+	f.assertRan(t, "jj workspace forget -- auth")
 }
 
 func TestRemoveAllDoneRemovesOnlyDoneFeatures(t *testing.T) {
@@ -565,8 +582,8 @@ func TestRemoveAllDoneRemovesOnlyDoneFeatures(t *testing.T) {
 	if err := f.app.RemoveAllDone(false); err != nil {
 		t.Fatal(err)
 	}
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
-	f.assertNotRan(t, "jj workspace forget billing", "tmux kill-window -t @3")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
+	f.assertNotRan(t, "jj workspace forget -- billing", "tmux kill-window -t @3")
 }
 
 func TestRemoveAllDoneNoneDone(t *testing.T) {
@@ -717,7 +734,7 @@ func TestRenameHappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertRan(t,
-		"jj workspace rename billing",
+		"jj workspace rename -- billing",
 		"tmux rename-window -t @2 billing",
 		"tmux set-option -w -t @2 @jumux-feature billing",
 	)
@@ -725,6 +742,30 @@ func TestRenameHappyPath(t *testing.T) {
 		t.Error("old workspace dir should no longer exist")
 	}
 	if _, err := os.Stat(f.wsPath("billing")); err != nil {
+		t.Errorf("new workspace dir should exist: %v", err)
+	}
+}
+
+func TestRenameLeadingHyphen(t *testing.T) {
+	f := newFixture(t)
+	ws := f.wsPath("-auth")
+	if err := os.MkdirAll(ws, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.responses["jj workspace list"] = "default: qq 11\n-auth: kk 22"
+	f.responses["tmux list-windows"] = "@1\tzsh\t\n@2\t-auth\t-auth"
+	if err := f.app.Rename("-auth", "-billing"); err != nil {
+		t.Fatal(err)
+	}
+	f.assertRan(t,
+		"jj workspace rename -- -billing",
+		"tmux rename-window -t @2 -billing",
+		"tmux set-option -w -t @2 @jumux-feature -billing",
+	)
+	if _, err := os.Stat(ws); !os.IsNotExist(err) {
+		t.Error("old workspace dir should no longer exist")
+	}
+	if _, err := os.Stat(f.wsPath("-billing")); err != nil {
 		t.Errorf("new workspace dir should exist: %v", err)
 	}
 }
@@ -739,7 +780,7 @@ func TestRenameRunsJJInOldWorkspaceDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range f.runner.Calls {
-		if c.String() == "jj workspace rename billing" && c.Dir != ws {
+		if c.String() == "jj workspace rename -- billing" && c.Dir != ws {
 			t.Errorf("jj workspace rename ran in %q, want %q", c.Dir, ws)
 		}
 	}
@@ -1078,7 +1119,7 @@ func TestAddRollsBackWhenPostCreateHookFails(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "scripted hook failure") {
 		t.Fatalf("got %v", err)
 	}
-	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget billing")
+	f.assertRan(t, "tmux kill-window -t @7", "jj workspace forget -- billing")
 	f.assertNotRan(t, "tmux send-keys")
 }
 
@@ -1125,7 +1166,7 @@ func TestRemoveRunsPreRemoveHooksBeforeForget(t *testing.T) {
 	if f.hookRunner.Calls[0].Dir != ws {
 		t.Errorf("hook should run in the workspace dir, got %q", f.hookRunner.Calls[0].Dir)
 	}
-	f.assertRan(t, "jj workspace forget auth")
+	f.assertRan(t, "jj workspace forget -- auth")
 }
 
 func TestRemoveAbortsWhenPreRemoveHookFails(t *testing.T) {
@@ -1200,7 +1241,7 @@ func TestRemoveSkipsPreRemoveHooksWhenDirMissing(t *testing.T) {
 	if len(f.hookRunner.Calls) != 0 {
 		t.Errorf("expected no hook calls when the workspace dir is missing, got %+v", f.hookRunner.Calls)
 	}
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
 }
 
 func TestRemoveTargetRunsPreRemoveHooksBeforeForget(t *testing.T) {
@@ -1228,7 +1269,7 @@ func TestRemoveTargetRunsPreRemoveHooksBeforeForget(t *testing.T) {
 			t.Errorf("RemoveTarget must not set JUMUX_WINDOW_NAME from an opaque window ID, got %q", e)
 		}
 	}
-	f.assertRan(t, "jj workspace forget auth", "tmux kill-window -t @2")
+	f.assertRan(t, "jj workspace forget -- auth", "tmux kill-window -t @2")
 }
 
 func TestRemoveTargetAbortsWhenPreRemoveHookFails(t *testing.T) {
@@ -1291,6 +1332,6 @@ func TestRemoveAllDoneContinuesAfterHookFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "scripted hook failure for auth") {
 		t.Fatalf("got %v, want the auth hook failure surfaced", err)
 	}
-	f.assertNotRan(t, "jj workspace forget auth")
-	f.assertRan(t, "jj workspace forget billing", "tmux kill-window -t @3")
+	f.assertNotRan(t, "jj workspace forget -- auth")
+	f.assertRan(t, "jj workspace forget -- billing", "tmux kill-window -t @3")
 }
