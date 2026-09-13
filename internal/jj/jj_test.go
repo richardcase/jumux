@@ -166,7 +166,18 @@ func TestWorkspaceRename(t *testing.T) {
 	if got := fr.Calls[0].Dir; got != "/ws-auth" {
 		t.Errorf("rename must run inside the workspace, ran in %q", got)
 	}
-	want := "jj workspace rename billing\n"
+	want := "jj workspace rename -- billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestWorkspaceRenameLeadingHyphen(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceRename(fr, "/ws-auth", "-billing"); err != nil {
+		t.Fatal(err)
+	}
+	want := "jj workspace rename -- -billing\n"
 	if got := fr.CommandLines(); got != want {
 		t.Errorf("CommandLines() = %q, want %q", got, want)
 	}
@@ -181,6 +192,50 @@ func TestWorkspaceRenameError(t *testing.T) {
 	}
 }
 
+func TestWorkspaceForget(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceForget(fr, "/repo", "billing"); err != nil {
+		t.Fatal(err)
+	}
+	want := "jj workspace forget -- billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestWorkspaceForgetLeadingHyphen(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceForget(fr, "/repo", "-billing"); err != nil {
+		t.Fatal(err)
+	}
+	want := "jj workspace forget -- -billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestWorkspaceAdd(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceAdd(fr, "/repo", "billing", "/ws-billing", "trunk()"); err != nil {
+		t.Fatal(err)
+	}
+	want := "jj workspace add --name billing -r trunk() /ws-billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestWorkspaceAddLeadingHyphen(t *testing.T) {
+	fr := &run.FakeRunner{}
+	if err := WorkspaceAdd(fr, "/repo", "-billing", "/ws-billing", "trunk()"); err != nil {
+		t.Fatal(err)
+	}
+	want := "jj workspace add --name=-billing -r trunk() /ws-billing\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
 func TestBookmarkSet(t *testing.T) {
 	fr := &run.FakeRunner{}
 	err := BookmarkSet(fr, "/repo", "myfeature", "myfeature@")
@@ -188,6 +243,18 @@ func TestBookmarkSet(t *testing.T) {
 		t.Fatalf("BookmarkSet() error = %v", err)
 	}
 	want := "jj bookmark set myfeature -r myfeature@\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestBookmarkSetLeadingHyphen(t *testing.T) {
+	fr := &run.FakeRunner{}
+	err := BookmarkSet(fr, "/repo", "-myfeature", "-myfeature@")
+	if err != nil {
+		t.Fatalf("BookmarkSet() error = %v", err)
+	}
+	want := "jj bookmark set -r -myfeature@ -- \"-myfeature\"\n"
 	if got := fr.CommandLines(); got != want {
 		t.Errorf("CommandLines() = %q, want %q", got, want)
 	}
@@ -209,6 +276,18 @@ func TestGitPush(t *testing.T) {
 		t.Fatalf("GitPush() error = %v", err)
 	}
 	want := "jj git push --bookmark myfeature\n"
+	if got := fr.CommandLines(); got != want {
+		t.Errorf("CommandLines() = %q, want %q", got, want)
+	}
+}
+
+func TestGitPushLeadingHyphen(t *testing.T) {
+	fr := &run.FakeRunner{}
+	err := GitPush(fr, "/repo", "-myfeature")
+	if err != nil {
+		t.Fatalf("GitPush() error = %v", err)
+	}
+	want := "jj git push --bookmark=\"-myfeature\"\n"
 	if got := fr.CommandLines(); got != want {
 		t.Errorf("CommandLines() = %q, want %q", got, want)
 	}

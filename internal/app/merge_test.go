@@ -40,7 +40,7 @@ func TestMergeHappyPath(t *testing.T) {
 		`jj log -r @ --no-graph -T ""`,
 		"jj rebase -b auth@ -d main",
 		"jj bookmark set main -r auth@",
-		"jj workspace forget auth",
+		"jj workspace forget -- auth",
 		"tmux kill-window -t @2",
 	)
 	if _, err := os.Stat(f.wsPath("auth")); !os.IsNotExist(err) {
@@ -106,7 +106,7 @@ func TestMergeDirtyDeclinedAndForced(t *testing.T) {
 	if err := f2.app.Merge("auth", true); err != nil {
 		t.Fatal(err)
 	}
-	f2.assertRan(t, "jj rebase -b auth@ -d main", "jj workspace forget auth")
+	f2.assertRan(t, "jj rebase -b auth@ -d main", "jj workspace forget -- auth")
 }
 
 func TestMergeRefusesDefault(t *testing.T) {
